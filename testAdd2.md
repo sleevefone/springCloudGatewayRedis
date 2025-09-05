@@ -26,3 +26,10 @@ curl -X POST http://localhost:8888/admin/routes \
     ]
 }'
 ```
+
+
+
+总之IDEA生成的注解处理器配置总是会导致Lombok无法正常工作，你可以尝试将注解处理器配置移动到Default或者Maven default来解决。
+
+https://zhuanlan.zhihu.com/p/28435303285
+

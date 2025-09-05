@@ -2,6 +2,7 @@ package com.ocft.gateway.openapi.admin;
 
 import com.ocft.gateway.openapi.config.RedisRouteDefinitionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,22 +17,22 @@ import reactor.core.publisher.Mono;
  */
 @RestController
 @RequestMapping("/admin/routes") // 将所有管理 API 放在 /admin/routes 路径下
+@RequiredArgsConstructor
+@Slf4j
 public class RouteAdminController {
 
     private final RedisRouteDefinitionRepository routeDefinitionRepository;
-
-    public RouteAdminController(RedisRouteDefinitionRepository routeDefinitionRepository) {
-        this.routeDefinitionRepository = routeDefinitionRepository;
-    }
 
     /**
      * 添加或更新一个路由定义。
      */
     @PostMapping
     public Mono<ResponseEntity<String>> saveRoute(@RequestBody RouteDefinition definition) {
+        log.info("Admin request to add/update route: [{}]", definition.getId());
         return routeDefinitionRepository.save(Mono.just(definition))
                 .then(Mono.just(ResponseEntity.ok("Route '" + definition.getId() + "' was saved.")))
                 .onErrorResume(e -> {
+                    log.error("Error saving route [{}]: {}", definition.getId(), e.getMessage(), e);
                     return Mono.just(ResponseEntity.status(500).body("Error saving route: " + e.getMessage()));
                 });
     }
@@ -41,6 +42,7 @@ public class RouteAdminController {
      */
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<String>> deleteRoute(@PathVariable String id) {
+        log.info("Admin request to delete route: [{}]", id);
         return routeDefinitionRepository.delete(Mono.just(id))
                 .then(Mono.just(ResponseEntity.ok("Route '" + id + "' was deleted.")));
     }
@@ -50,6 +52,7 @@ public class RouteAdminController {
      */
     @GetMapping
     public Flux<RouteDefinition> getAllRoutes() {
+        log.info("Admin request to get all routes.");
         return routeDefinitionRepository.getRouteDefinitions();
     }
 }

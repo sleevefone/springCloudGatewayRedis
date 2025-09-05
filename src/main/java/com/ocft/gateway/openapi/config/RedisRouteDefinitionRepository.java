@@ -3,33 +3,28 @@ package com.ocft.gateway.openapi.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Repository
+@Slf4j
+@RequiredArgsConstructor
 public class RedisRouteDefinitionRepository implements RouteDefinitionRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(RedisRouteDefinitionRepository.class);
-
     private static final String ROUTES_KEY = "gateway:routes";
+    public static final String REFRESH_ROUTES_CHANNEL = "gateway:routes:refresh";
 
     private final ReactiveStringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
-
-    public RedisRouteDefinitionRepository(ReactiveStringRedisTemplate redisTemplate, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
-        this.eventPublisher = eventPublisher;
-    }
 
     @Override
     public Flux<RouteDefinition> getRouteDefinitions() {
@@ -79,7 +74,12 @@ public class RedisRouteDefinitionRepository implements RouteDefinitionRepository
      * Publishes a RefreshRoutesEvent to notify the gateway to reload routes.
      */
     private void notifyChanged() {
-        log.info("Routes changed. Publishing RefreshRoutesEvent.");
+        // 1. Publish to Redis channel for other nodes
+        log.info("Publishing route change notification to Redis channel: {}", REFRESH_ROUTES_CHANNEL);
+        redisTemplate.convertAndSend(REFRESH_ROUTES_CHANNEL, "refresh").subscribe();
+
+        // 2. Publish local event for immediate refresh on this node
+        log.info("Publishing local RefreshRoutesEvent.");
         this.eventPublisher.publishEvent(new RefreshRoutesEvent(this));
     }
 }
