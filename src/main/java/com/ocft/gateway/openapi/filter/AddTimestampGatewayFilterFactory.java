@@ -48,7 +48,7 @@ public class AddTimestampGatewayFilterFactory extends AbstractGatewayFilterFacto
      * 配置类，用于接收来自路由定义的参数。
      * 字段名必须与路由定义中 'args' 的键名匹配。
      */
-    @Data // Lombok's @Data generates getters, setters, toString, etc.
+    @Data
     public static class Config {
         private String headerName;
     }
