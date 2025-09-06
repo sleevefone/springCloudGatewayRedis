@@ -1,6 +1,7 @@
 ### 1：后管地址: http://localhost:8888/index.html
 ### 2：后管示例：
-![bankend.png](bankend.png)
+FILTER 列表：![bankend.png](bankend.png)
+FILTER 详情：![gateway_v2.png](gateway_v2.png)
 ### 3：数据库脚本
 ```text
 CREATE TABLE `gateway_routes` (
