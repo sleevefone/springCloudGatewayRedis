@@ -1,9 +1,10 @@
 import { useRoutes } from './composables/useRoutes.js';
 import { useViewAndForm } from './composables/useViewAndForm.js';
+import { useApiClients } from './composables/useApiClients.js';
 
 window.onload = async function () {
     // 1. Securely get Vue functions from the global scope.
-    const { createApp } = Vue;
+    const { createApp, ref, computed } = Vue;
 
     // --- Robust Component Loading ---
     const fetchTemplate = async (path) => {
@@ -12,9 +13,10 @@ window.onload = async function () {
         return await response.text();
     };
 
-    const [routeListTemplate, routeFormTemplate] = await Promise.all([
+    const [routeListTemplate, routeFormTemplate, apiClientListTemplate] = await Promise.all([
         fetchTemplate('./components/RouteList.html'),
-        fetchTemplate('./components/RouteForm.html')
+        fetchTemplate('./components/RouteForm.html'),
+        fetchTemplate('./components/ApiClientList.html')
     ]);
 
     const RouteList = {
@@ -29,41 +31,49 @@ window.onload = async function () {
         emits: ['save-route', 'cancel', 'add-filter', 'remove-filter'],
     };
 
+    const ApiClientList = {
+        template: apiClientListTemplate,
+        props: ['clients', 'loading'],
+        emits: ['create-client', 'delete-client', 'update-client-status'],
+        setup() {
+            const newClientDescription = ref('');
+            return { newClientDescription };
+        }
+    };
+
     // --- Main App Definition (The Orchestrator) ---
     const app = createApp({
         components: {
             RouteList,
             RouteForm,
+            ApiClientList
         },
         setup() {
-            // 2. Inject the dependencies into our composables.
+            // --- State for Main Menu Navigation ---
+            const activeMenu = ref('routes'); // 'routes' or 'apiClients'
+
+            // --- Composables for each feature ---
             const routesManager = useRoutes(Vue);
             const viewAndFormManager = useViewAndForm(Vue);
+            const apiClientsManager = useApiClients(Vue);
+
+            const currentComponent = computed(() => {
+                if (activeMenu.value === 'routes') {
+                    return viewAndFormManager.currentComponent.value;
+                }
+                return 'ApiClientList';
+            });
 
             const API_BASE_URL = '/admin/routes';
 
             // --- Cross-Module Logic ---
-            const handleToggleEnabled = async (route) => {
-                try {
-                    // The v-model on the switch already updated the route object in the list
-                    await axios.post(API_BASE_URL, route);
-                    // No alert needed for a simple toggle, to keep the UI clean
-                } catch (error) {
-                    alert('Failed to update route status.');
-                    // Revert the switch state on failure
-                    route.enabled = !route.enabled;
-                    console.error(error);
-                }
-            };
-
-            const handleSubmit = async (formData) => {
+            const handleRouteSubmit = async (formData) => {
                 try {
                     const payload = {
                         ...formData,
                         predicates: JSON.parse(formData.predicatesJson),
                         filters: formData.filters.map(f => ({ ...f, args: JSON.parse(f.argsJson || '{}') }))
                     };
-                    
                     delete payload.predicatesJson;
                     payload.filters.forEach(f => delete f.argsJson);
 
@@ -73,25 +83,36 @@ window.onload = async function () {
                     alert(`Route ${viewAndFormManager.isEditMode.value ? 'updated' : 'created'} successfully.`);
                     
                     viewAndFormManager.showListView();
-                    routesManager.fetchRoutes(); // Tell the routes module to refresh
+                    routesManager.fetchRoutes();
                 } catch (error) {
                     alert('Failed to save route. Check JSON format.');
                     console.error(error);
                 }
             };
+            
+            const handleRouteToggle = async (route) => {
+                try {
+                    await axios.post(API_BASE_URL, route);
+                } catch (error) {
+                    alert('Failed to update route status.');
+                    route.enabled = !route.enabled;
+                    console.error(error);
+                }
+            };
 
-            // 4. Return everything to the template
+            // --- Return all state and methods to the template ---
             return {
+                activeMenu,
+                currentComponent,
                 ...routesManager,
                 ...viewAndFormManager,
-                handleSubmit,
-                handleToggleEnabled
+                ...apiClientsManager,
+                handleSubmit: handleRouteSubmit,
+                handleToggleEnabled: handleRouteToggle
             };
         }
     });
 
-    // We need to re-enable ElementPlus for the <el-table> and <el-switch>
     app.use(ElementPlus);
-
     app.mount('#app');
 };

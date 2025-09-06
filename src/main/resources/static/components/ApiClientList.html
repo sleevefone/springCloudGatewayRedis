@@ -1,0 +1,31 @@
+<div>
+    <div class="header">
+        <h1>API Client Management</h1>
+    </div>
+
+    <!-- Create Client Form -->
+    <div class="create-form-container">
+        <input type="text" v-model="newClientDescription" placeholder="Enter a description for the new client...">
+        <button class="primary" @click="$emit('create-client', newClientDescription); newClientDescription.value = ''">+ Create New Client</button>
+    </div>
+
+    <!-- API Clients Table -->
+    <el-table :data="clients" stripe v-loading="loading">
+        <el-table-column prop="description" label="Description"></el-table-column>
+        <el-table-column prop="appKey" label="AppKey" width="300"></el-table-column>
+        <el-table-column prop="secretKey" label="SecretKey" width="300"></el-table-column>
+        <el-table-column label="Enabled" width="100">
+            <template #default="scope">
+                <el-switch 
+                    v-model="scope.row.enabled" 
+                    @change="$emit('update-client-status', scope.row)">
+                </el-switch>
+            </template>
+        </el-table-column>
+        <el-table-column label="Actions" width="120">
+            <template #default="scope">
+                <button class="danger" @click="$emit('delete-client', scope.row.id)">Delete</button>
+            </template>
+        </el-table-column>
+    </el-table>
+</div>

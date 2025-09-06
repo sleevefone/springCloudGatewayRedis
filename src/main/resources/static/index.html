@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gateway Route Manager (Component-based)</title>
-    <!-- Re-introducing Element Plus CSS -->
+    <title>Gateway Admin Dashboard</title>
     <link rel="stylesheet" href="vendor/element-plus.css"/>
     <style>
         /* --- Basic Setup --- */
@@ -16,24 +15,26 @@
         
         /* --- Sidebar Menu --- */
         .menu-list { list-style: none; padding: 0; margin: 0; }
-        .menu-list li { padding: 12px 15px; border-radius: 4px; margin-bottom: 5px; cursor: pointer; }
-        .menu-list li.active { background-color: #34495e; }
+        .menu-list li { padding: 12px 15px; border-radius: 4px; margin-bottom: 5px; cursor: pointer; transition: background-color 0.2s; }
+        .menu-list li.active { background-color: #409eff; }
         .menu-list li:not(.disabled):hover { background-color: #3a506b; }
         .menu-list li.disabled { opacity: 0.6; cursor: not-allowed; }
 
-        /* --- Header --- */
+        /* --- Header & Form --- */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; gap: 15px; }
         .header h1 { margin: 0; font-size: 24px; flex-shrink: 0; }
-
-        /* --- Search Container --- */
+        .create-form-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        .create-form-container input { flex-grow: 1; padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; }
         .search-container { flex-grow: 1; display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
         .search-container input { width: 250px; padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; }
 
-        /* --- Buttons --- */
+        /* --- Buttons & Table --- */
         button { font-size: 14px; padding: 8px 15px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; background-color: #fff; }
         button.primary { background-color: #409eff; color: #fff; border-color: #409eff; }
         button.danger { background-color: #f56c6c; color: #fff; border-color: #f56c6c; }
         button:hover { opacity: 0.8; }
+        .el-table { color: #303133; }
+        .el-table th { background-color: #fafafa !important; }
 
         /* --- Form --- */
         .form-area { display: flex; flex-direction: column; gap: 15px; }
@@ -55,8 +56,8 @@
         <!-- Sidebar -->
         <div class="sidebar">
             <ul class="menu-list">
-                <li class="active">Route Management</li>
-                <li class="disabled">Dashboard</li>
+                <li :class="{ active: activeMenu === 'routes' }" @click="activeMenu = 'routes'">Route Management</li>
+                <li :class="{ active: activeMenu === 'apiClients' }" @click="activeMenu = 'apiClients'">API Clients</li>
                 <li class="disabled">Settings</li>
             </ul>
         </div>
@@ -68,6 +69,7 @@
                 <component 
                     :is="currentComponent" 
                     :routes="routes" 
+                    :clients="clients"
                     :loading="loading"
                     :form-data="form"
                     :title="formTitle"
@@ -84,6 +86,9 @@
                     @query="handleSearch"
                     @reset="handleReset"
                     @toggle-enabled="handleToggleEnabled"
+                    @create-client="createClient"
+                    @delete-client="deleteClient"
+                    @update-client-status="updateClientStatus"
                 ></component>
             </div>
         </div>
@@ -91,7 +96,6 @@
 </div>
 
 <script src="vendor/vue.global.js"></script>
-<!-- Re-introducing Element Plus JS Library -->
 <script src="vendor/element-plus.full.js"></script>
 <script src="vendor/axios.min.js"></script>
 <script type="module" src="./app.js"></script>
