@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
  * 一个自定义的网关过滤器工厂。
@@ -28,7 +29,7 @@ public class AddTimestampGatewayFilterFactory extends AbstractGatewayFilterFacto
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             // 如果配置中未提供 headerName，则使用默认值
-            String headerNameToUse = (config.getHeaderName() != null) ? config.getHeaderName() : DEFAULT_HEADER_NAME;
+            String headerNameToUse = StringUtils.hasText(config.getHeaderName()) ? config.getHeaderName() : DEFAULT_HEADER_NAME;
 
             log.info("Executing AddTimestamp filter, adding header: '{}'", headerNameToUse);
 

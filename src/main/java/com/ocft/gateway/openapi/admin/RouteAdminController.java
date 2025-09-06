@@ -1,6 +1,6 @@
 package com.ocft.gateway.openapi.admin;
 
-import com.ocft.gateway.openapi.config.RedisRouteDefinitionRepository;
+import org.springframework.cloud.gateway.route.RouteDefinitionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.route.RouteDefinition;
@@ -21,7 +21,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 public class RouteAdminController {
 
-    private final RedisRouteDefinitionRepository routeDefinitionRepository;
+    private final RouteDefinitionRepository routeDefinitionRepository;
 
     /**
      * 添加或更新一个路由定义。
