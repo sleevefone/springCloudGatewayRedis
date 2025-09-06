@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway Route Manager</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css"/>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f7fa; }
+        #app { max-width: 1200px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0,0,0,.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .filter-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 100%; }
+        .filter-item .args-input { flex-grow: 1; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- Header -->
+    <div class="header">
+        <h1>Gateway Route Manager</h1>
+        <el-button type="primary" @click="handleCreate">+ Create Route</el-button>
+    </div>
+
+    <!-- Routes Table -->
+    <el-table :data="routes" stripe v-loading="loading">
+        <el-table-column prop="id" label="ID" width="250"></el-table-column>
+        <el-table-column prop="uri" label="URI"></el-table-column>
+        <el-table-column prop="order" label="Order" width="80"></el-table-column>
+        <el-table-column label="Enabled" width="100">
+            <template #default="scope">
+                <el-switch v-model="scope.row.enabled" @change="handleToggleEnabled(scope.row)"></el-switch>
+            </template>
+        </el-table-column>
+        <el-table-column label="Actions" width="180">
+            <template #default="scope">
+                <el-button size="small" @click="handleEdit(scope.row)">Edit</el-button>
+                <el-popconfirm title="Are you sure to delete this route?" @confirm="handleDelete(scope.row.id)">
+                    <template #reference>
+                        <el-button size="small" type="danger">Delete</el-button>
+                    </template>
+                </el-popconfirm>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- Create/Edit Dialog -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="60%" top="5vh">
+        <el-form :model="form" label-position="top">
+            <el-form-item label="Route ID">
+                <el-input v-model="form.id" :disabled="isEditMode"></el-input>
+            </el-form-item>
+            <el-form-item label="URI">
+                <el-input v-model="form.uri"></el-input>
+            </el-form-item>
+            <el-row :gutter="20">
+                <el-col :span="12">
+                    <el-form-item label="Order">
+                        <el-input-number v-model="form.order" :min="0"></el-input-number>
+                    </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                    <el-form-item label="Route Enabled">
+                        <el-switch v-model="form.enabled"></el-switch>
+                    </el-form-item>
+                </el-col>
+            </el-row>
+            <el-form-item label="Predicates (JSON)">
+                <el-input v-model="form.predicatesJson" type="textarea" :rows="5"></el-input>
+            </el-form-item>
+            
+            <el-form-item label="Filters">
+                <div style="width: 100%;">
+                    <div v-for="(filter, index) in form.filters" :key="index" class="filter-item">
+                        <el-switch v-model="filter.enabled" title="Enable/Disable Filter"></el-switch>
+                        <el-input v-model="filter.name" placeholder="Filter Name"></el-input>
+                        <el-input v-model="filter.argsJson" class="args-input" placeholder="Arguments as JSON"></el-input>
+                        <el-button type="danger" link @click="removeFilter(index)">Remove</el-button>
+                    </div>
+                    <el-button type="primary" link @click="addFilter">+ Add Filter</el-button>
+                </div>
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <el-button @click="dialogVisible = false">Cancel</el-button>
+            <el-button type="primary" @click="handleSubmit">Confirm</el-button>
+        </template>
+    </el-dialog>
+
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://unpkg.com/element-plus"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="./app.js"></script>
+
+</body>
+</html>
