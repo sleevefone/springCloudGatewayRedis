@@ -1,3 +1,21 @@
+### 1：后管地址: http://localhost:8888/index.html
+### 2：后管示例：
+![bankend.png](bankend.png)
+### 3：数据库脚本
+```text
+CREATE TABLE `gateway_routes` (
+  `id` varchar(100) NOT NULL,
+  `uri` text NOT NULL,
+  `predicates` text NOT NULL,
+  `filters` text,
+  `route_order` int NOT NULL DEFAULT '0',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB
+
+```
+### 单元化，双网关思路
+```text
  第 1 步：在 L1 网关中定义一个“通配”路由在您的路由管理服务 (route-manager) 中，为 L1 网关创建这样一条路由规则。注意，它的 uri 是一个无意义的占位符，因为它会被我们的自定义 Filter 覆盖。
  
  {
@@ -45,3 +63,4 @@
  4.[L2 网关与注册中心交互] -> a. Spring Cloud Gateway 的服务发现模块被激活。 b. L2 网关向注册中心发出查询：“你好，请告诉我 order-service-in-unit-a 这个服务现在有哪些健康的实例？” c. 注册中心回复一个地址列表，比如 [10.10.1.5:8080, 10.10.1.6:8080]。
  5.[L2 网关执行负载均衡] -> a. Spring Cloud Gateway 内置的负载均衡器 (Spring Cloud LoadBalancer) 从列表中选择一个实例，比如 10.10.1.5:8080（默认使用轮询策略）。 b. L2 网关将请求最终转发到 http://10.10.1.5:8080/api/orders/123。
  6.[L3 微服务] -> order-service-in-unit-a 的某个实例接收到请求，执行业务逻辑，然后将响应原路返回。
+```
