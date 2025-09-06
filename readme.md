@@ -1,8 +1,8 @@
-### 1：后管地址: http://localhost:8888/index.html
-### 2：后管示例：
-FILTER 列表：![bankend.png](bankend.png)
-FILTER 详情：![gateway_v2.png](gateway_v2.png)
-### 3：数据库脚本
+### 1: Admin Panel URL: http://localhost:8888/index.html
+### 2: Admin Panel Examples:
+FILTER List: ![bankend.png](bankend.png)
+FILTER Details: ![gateway_v2.png](gateway_v2.png)
+### 3: Database Script
 ```text
 CREATE TABLE `gateway_routes` (
   `id` varchar(100) NOT NULL,
@@ -15,10 +15,51 @@ CREATE TABLE `gateway_routes` (
 ) ENGINE=InnoDB
 
 ```
-### 单元化，双网关思路
+### 4: Configure a FILTER Test Case (Add V666Timestamp=timestamp to the request header) 
 ```text
- 第 1 步：在 L1 网关中定义一个“通配”路由在您的路由管理服务 (route-manager) 中，为 L1 网关创建这样一条路由规则。注意，它的 uri 是一个无意义的占位符，因为它会被我们的自定义 Filter 覆盖。
- 
+ curl -X POST http://localhost:8888/admin/routes \
+-H "Content-Type: application/json" \
+-d '{
+    "id": "configurable_filter_test",
+    "uri": "https://httpbin.org",
+    "predicates": [ { "name": "Path", "args": { "_genkey_0": "/configurable/**" } } ],
+    "filters": [
+        { "name": "StripPrefix", "args": { "_genkey_0": "1" } },
+        {
+            "name": "AddTimestamp",
+            "args": {
+                "headerName": "V666Timestamp"
+            }
+        }
+    ]
+}'
+```
+### 5: test filter
+```text
+curl http://localhost:8888/configurable/get
+
+result:
+{
+  "args": {}, 
+  "headers": {
+    "Accept": "*/*", 
+    "Content-Length": "0", 
+    "Forwarded": "proto=http;host=\"localhost:8888\";for=\"[0:0:0:0:0:0:0:1]:60379\"", 
+    "Host": "httpbin.org", 
+    "User-Agent": "curl/8.7.1", 
+    "V666Timestamp": "1757127853254", 
+    "X-Amzn-Trace-Id": "Root=1-68bba4af-2ccc2aa45816b47f372d4386", 
+    "X-Forwarded-Host": "localhost:8888", 
+    "X-Forwarded-Prefix": "/configurable"
+  }, 
+  "origin": "0:0:0:0:0:0:0:1, 194.50.154.142", 
+  "url": "https://localhost:8888/get"
+}
+```
+
+## Unitization, Dual-Gateway Architecture Idea
+##### Step 1: Define a "wildcard" route in the L1 Gateway In your route management service (e.g., route-manager), create a route rule for the L1 Gateway like this. Note that its uri is a meaningless placeholder because it will be overridden by our custom Filter.
+```text
  {
  "id": "dynamic-unit-routing-rule",
  "uri": "lb://placeholder-service", // 占位符，无实际意义
@@ -38,11 +79,11 @@ CREATE TABLE `gateway_routes` (
  }
  ]
  }
- 第 2 步：在 L1 网关项目中编写自定义 GatewayFilterFactory您需要在 L1 网关的代码中创建一个新的 Java 类。
  
- 第 3 步：性能优化 - 引入高速缓存直接在 Filter 里查询数据库是绝对不可行的，它会拖垮整个网关。您必须在 mappingService 中实现一个高速缓存（例如使用 Caffeine 或 Guava Cache）。•缓存逻辑: getUnitByTenantId 方法应该先查缓存，如果缓存中没有，才去查数据库，并将结果放入缓存（设置一个合理的过期时间，比如 5 分钟）。•缓存更新: 当数据库中的映射关系变化时，需要有机制来使缓存失效（比如通过消息队列通知网关清除缓存）
- 
- 第三层就是您的业务微服务集群（order-service, user-service 等），而 L2 网关正是通过注册中心 (Service Discovery) 来找到它们的。我们来把这个流程的最后一块拼图放上：角色分工：L2 网关与注册中心•L2 网关 (In-Unit Gateway): 它是单元内部的“交通警察”。它的职责是根据请求的路径 (/api/orders/**)，决定这个请求应该交给哪个业务团队（比如“订单服务团队”）处理。但它只知道团队的名字 (order-service-in-unit-a)，并不知道这个团队的具体成员（IP 地址和端口）在哪里。•注册中心 (Service Discovery, e.g., Nacos, Eureka, Consul): 它是整个单元的“通讯录”或“动态地图”。每个微服务实例在启动时，都会向注册中心报告自己的地址（“我是‘订单服务团队’的张三，我的地址是 10.10.1.5:8080”）。L2 网关的路由规则 (关键点)L2 网关的路由规则和 L1 的有一个本质区别，就是 uri 的格式。它会使用 lb:// 协议，lb 代表 Load Balancer (负载均衡)。在 L2 网关的路由配置中，规则是这样的：
+ ```
+##### Step 2: Write a custom GatewayFilterFactory in the L1 Gateway project You need to create a new Java class in the L1 Gateway's codebase.
+```
+ Step 3: Performance Optimization - Introduce a High-Speed Cache Directly querying the database within the Filter is absolutely not feasible; it will bring down the entire gateway. You must implement a high-speed cache in the mappingService (e.g., using Caffeine or Guava Cache).•Caching Logic: The getUnitByTenantId method should first check the cache. If it's a cache miss, then query the database and put the result into the cache (with a reasonable expiration time, e.g., 5 minutes).•Cache Invalidation: When the mapping relationship in the database changes, there needs to be a mechanism to invalidate the cache (e.g., notifying the gateway to clear the cache via a message queue).The third layer is your business microservice cluster (order-service, user-service, etc.), and the L2 Gateway finds them through Service Discovery. Let's put the final piece of this puzzle together:Role Division: L2 Gateway and Service Discovery•L2 Gateway (In-Unit Gateway): It's the "traffic police" inside a unit. Its responsibility is to decide which business team (e.g., the "order service team") should handle the request based on the request path (/api/orders/**). However, it only knows the team's name (order-service-in-unit-a), not the specific members' locations (IP addresses and ports).•Service Discovery (e.g., Nacos, Eureka, Consul): It's the "address book" or "dynamic map" for the entire unit. When each microservice instance starts, it reports its address to the service discovery (e.g., "I am an instance of the 'order service team', and my address is 10.10.1.5:8080").L2 Gateway's Routing Rules (Key Point) The routing rules of the L2 Gateway have a fundamental difference from L1's: the uri format. It uses the lb:// protocol, where lb stands for Load Balancer. In the L2 Gateway's route configuration, the rule looks like this:
  {
  "id": "route-to-orders-service-in-unit-a",
  "uri": "lb://order-service-in-unit-a", // 注意这里！
@@ -57,11 +98,12 @@ CREATE TABLE `gateway_routes` (
  ]
  }
  
- 把 L1, L2, L3 和注册中心串联起来，看一个完整的请求旅程：
- 1.[外部请求] -> 客户端发送请求 GET /api/orders/123，并携带分区键 X-Tenant-ID: tenant-1。
- 2.[L1 网关] -> a. L1 网关的自定义 Filter (UnitSelectionGatewayFilter) 捕获请求。 b. Filter 提取 tenant-1，查询缓存/数据库，得知 tenant-1 属于 LA 单元。 c. Filter 从配置中找到 LA 单元对应的 L2 网关地址 http://l2-gateway-of-unit-a.com。 d. L1 网关动态修改请求目标，将请求转发给 L2 网关。
- 3.[L2 网关 (LA 单元)] -> a. L2 网关收到请求 GET /api/orders/123。 b. 它在自己的路由表（从它自己的 Redis 加载）中进行匹配，根据路径 /api/orders/** 找到了上面那条规则。 c. 它看到了目标是 uri: "lb://order-service-in-unit-a"。
- 4.[L2 网关与注册中心交互] -> a. Spring Cloud Gateway 的服务发现模块被激活。 b. L2 网关向注册中心发出查询：“你好，请告诉我 order-service-in-unit-a 这个服务现在有哪些健康的实例？” c. 注册中心回复一个地址列表，比如 [10.10.1.5:8080, 10.10.1.6:8080]。
- 5.[L2 网关执行负载均衡] -> a. Spring Cloud Gateway 内置的负载均衡器 (Spring Cloud LoadBalancer) 从列表中选择一个实例，比如 10.10.1.5:8080（默认使用轮询策略）。 b. L2 网关将请求最终转发到 http://10.10.1.5:8080/api/orders/123。
- 6.[L3 微服务] -> order-service-in-unit-a 的某个实例接收到请求，执行业务逻辑，然后将响应原路返回。
+ Connecting L1, L2, L3, and Service Discovery - A Complete Request Journey:
+ 1.[External Request] -> The client sends a request GET /api/orders/123, carrying the partition key X-Tenant-ID: tenant-1.
+ 2.[L1 Gateway] -> a. The custom Filter (UnitSelectionGatewayFilter) of the L1 Gateway captures the request. b. The Filter extracts tenant-1, queries the cache/database, and learns that tenant-1 belongs to unit LA. c. The Filter finds the corresponding L2 Gateway address for unit LA from the configuration, e.g., http://l2-gateway-of-unit-a.com. d. The L1 Gateway dynamically modifies the request target and forwards the request to the L2 Gateway.
+ 3.[L2 Gateway (Unit LA)] -> a. The L2 Gateway receives the request GET /api/orders/123. b. It performs a match in its own route table (loaded from its own Redis) and finds the rule above based on the path /api/orders/**. c. It sees that the target URI is "lb://order-service-in-unit-a".
+ 4.[L2 Gateway Interacts with Service Discovery] -> a. The service discovery module of Spring Cloud Gateway is activated. b. The L2 Gateway sends a query to the service discovery: "Hello, please tell me which healthy instances the service order-service-in-unit-a currently has." c. The service discovery replies with a list of addresses, e.g., [10.10.1.5:8080, 10.10.1.6:8080].
+ 5.[L2 Gateway Performs Load Balancing] -> a. The built-in load balancer of Spring Cloud Gateway (Spring Cloud LoadBalancer) selects an instance from the list, e.g., 10.10.1.5:8080 (using the round-robin strategy by default). b. The L2 Gateway finally forwards the request to http://10.10.1.5:8080/api/orders/123.
+ 6.[L3 Microservice] -> An instance of order-service-in-unit-a receives the request, executes the business logic, and then returns the response along the original path.
 ```
+
