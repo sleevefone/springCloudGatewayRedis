@@ -1,7 +1,7 @@
 package com.ocft.gateway.openapi.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ocft.gateway.openapi.admin.RouteDefinitionEntity;
 import com.ocft.gateway.openapi.admin.RouteDefinitionJpaRepository;
@@ -15,7 +15,6 @@ import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionRepository;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -75,6 +74,7 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
                     try {
                         entity.setPredicates(objectMapper.writeValueAsString(rd.getPredicates()));
                         entity.setFilters(objectMapper.writeValueAsString(rd.getFilters()));
+//                        log.info("save: {}",objectMapper.writeValueAsString(rd));
                     } catch (JsonProcessingException e) {
                         log.error("Failed to serialize predicates or filters for route {}", rd.getId(), e);
                         throw new RuntimeException("Error serializing route definition", e);
