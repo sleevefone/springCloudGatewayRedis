@@ -1,12 +1,14 @@
 package com.ocft.gateway.openapi.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ocft.gateway.openapi.admin.RouteDefinitionEntity;
 import com.ocft.gateway.openapi.admin.RouteDefinitionJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
@@ -34,11 +36,20 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
     private final ReactiveStringRedisTemplate redisTemplate;
     private final ApplicationEventPublisher eventPublisher;
 
+    @Value("${gateway.routes.db.enabled:true}")
+    private boolean dbRoutesEnabled;
+
     @Override
     public Flux<RouteDefinition> getRouteDefinitions() {
-        log.debug("Loading routes from database.");
+        if (!dbRoutesEnabled) {
+            log.info("Loading routes from database is disabled by configuration 'gateway.routes.db.enabled'.");
+            return Flux.empty();
+        }
+
+        log.debug("Loading active routes from database.");
         // JPA 是阻塞 IO，必须在专用的弹性线程池上执行，以避免阻塞 Netty 的事件循环线程
-        return Mono.fromCallable(jpaRepository::findAll)
+        // 只加载启用的路由 (enabled = true)，在数据库层面进行过滤以提高效率
+        return Mono.fromCallable(() -> jpaRepository.findByEnabled(true))
                 .flatMapMany(Flux::fromIterable)
                 .map(this::convertToRouteDefinition)
                 .subscribeOn(Schedulers.boundedElastic());
@@ -46,9 +57,30 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
 
     @Override
     public Mono<Void> save(Mono<RouteDefinition> routeDefinitionMono) {
-        return routeDefinitionMono.flatMap(routeDefinition ->
+        return routeDefinitionMono.flatMap(rd ->
                 Mono.fromRunnable(() -> {
-                    jpaRepository.save(convertToEntity(routeDefinition));
+                    // 1. 先根据 ID 查找现有实体，以保留 enabled 等数据库特有的状态
+                    RouteDefinitionEntity entity = jpaRepository.findById(rd.getId())
+                            .orElseGet(() -> {
+                                // 2. 如果不存在，则创建一个新实体。ID 来源于传入的 RouteDefinition。
+                                // 新建的路由默认是启用的 (enabled=true)，由 RouteDefinitionEntity 的字段默认值保证。
+                                RouteDefinitionEntity newEntity = new RouteDefinitionEntity();
+                                newEntity.setId(rd.getId());
+                                return newEntity;
+                            });
+
+                    // 3. 使用传入的 RouteDefinition 更新实体的属性
+                    entity.setUri(rd.getUri().toString());
+                    entity.setRouteOrder(rd.getOrder());
+                    try {
+                        entity.setPredicates(objectMapper.writeValueAsString(rd.getPredicates()));
+                        entity.setFilters(objectMapper.writeValueAsString(rd.getFilters()));
+                    } catch (JsonProcessingException e) {
+                        log.error("Failed to serialize predicates or filters for route {}", rd.getId(), e);
+                        throw new RuntimeException("Error serializing route definition", e);
+                    }
+
+                    jpaRepository.save(entity);
                     notifyChanged();
                 }).subscribeOn(Schedulers.boundedElastic())
         ).then();
@@ -69,17 +101,6 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
         redisTemplate.convertAndSend(REFRESH_ROUTES_CHANNEL, "refresh")
                 .subscribe(null, error -> log.error("Failed to publish route refresh message to Redis.", error));
         eventPublisher.publishEvent(new RefreshRoutesEvent(this));
-    }
-
-    @SneakyThrows
-    private RouteDefinitionEntity convertToEntity(RouteDefinition rd) {
-        var entity = new RouteDefinitionEntity();
-        entity.setId(rd.getId());
-        entity.setUri(rd.getUri().toString());
-        entity.setRouteOrder(rd.getOrder());
-        entity.setPredicates(objectMapper.writeValueAsString(rd.getPredicates()));
-        entity.setFilters(objectMapper.writeValueAsString(rd.getFilters()));
-        return entity;
     }
 
     @SneakyThrows
