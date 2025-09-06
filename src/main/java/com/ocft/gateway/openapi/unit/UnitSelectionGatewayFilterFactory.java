@@ -2,7 +2,6 @@
 
 package com.ocft.gateway.openapi.unit;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -10,6 +9,7 @@ import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 
@@ -73,13 +73,14 @@ public class UnitSelectionGatewayFilterFactory extends AbstractGatewayFilterFact
     public UnitSelectionGatewayFilterFactory(TenantUnitMappingService mappingService) {
         this.mappingService = mappingService;
     }
+
     @Override
     public GatewayFilter apply(Object config) {
         return (exchange, chain) -> {
             String tenantId = exchange.getRequest().getHeaders().getFirst("X-Tenant-ID");
             URI originalUri = exchange.getRequest().getURI();
 
-            if (tenantId == null) {
+            if (tenantId == null || tenantId.isEmpty()) { // Add check for empty tenantId
                 log.trace("No X-Tenant-ID header found, skipping dynamic routing for: {}", originalUri);
                 return chain.filter(exchange);
             }
@@ -89,7 +90,7 @@ public class UnitSelectionGatewayFilterFactory extends AbstractGatewayFilterFact
 
             String l2GatewayHost = lookupL2GatewayHostFromConfig(unit);
 
-            if (l2GatewayHost == null) {
+            if (l2GatewayHost == null || l2GatewayHost.isEmpty()) { // Add check for empty l2GatewayHost
                 log.warn("No L2 gateway mapping found for tenant '{}'. Passing through.", tenantId);
                 return chain.filter(exchange);
             }
@@ -110,7 +111,7 @@ public class UnitSelectionGatewayFilterFactory extends AbstractGatewayFilterFact
                     .predicate(x -> true) // 匹配规则，这里写死匹配所有
                     .build();
             // 覆盖路由目标，避免继续使用占位符 route
-            exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR,newRoute);
+            exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR, newRoute);
 
             log.info("Dynamic routing for tenant '{}': {} -> {}", tenantId, originalUri, newUri);
 
@@ -123,8 +124,10 @@ public class UnitSelectionGatewayFilterFactory extends AbstractGatewayFilterFact
     private String lookupL2GatewayHostFromConfig(String unit) {
         // 这里应该只返回 host，例如 "http://l2-gateway-of-unit-a.com" 或 "https://httpbin.org"
         // 在实际应用中，这部分逻辑会更复杂，可能需要从配置中心（如 Nacos, Apollo）读取
-        if ("LA".equals(unit)) { // 为了方便您的测试
+        if ("LA".equalsIgnoreCase(unit)) { // Use equalsIgnoreCase for case-insensitive comparison
             return "https://httpbin.org";
+        } else if ("LB".equalsIgnoreCase(unit)) {
+            return "http://localhost:8888/admin/routes/hello";
         }
         return null;
     }

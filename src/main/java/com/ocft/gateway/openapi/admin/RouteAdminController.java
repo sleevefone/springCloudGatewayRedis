@@ -10,6 +10,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
+import java.util.Optional;
 
 /**
  * 后台管理API，用于动态管理路由规则
@@ -96,5 +97,23 @@ public class RouteAdminController {
     public Mono<ResponseEntity<Void>> refreshRoutes() {
         routeAdminService.refreshRoutes();
         return Mono.just(ResponseEntity.ok().build());
+    }
+
+
+    @PostMapping("/hello")
+    public Mono<ResponseEntity<RouteDefinitionPayload>> hello() {
+        return routeAdminService.getById("dynamic-unit-routing-rule")
+                // 使用 map 将成功获取的 payload 包装成 200 OK 响应
+                .map(ResponseEntity::ok)
+                // 如果上游 Mono 为空 (即未找到路由)，则返回 404 Not Found
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
+    }
+    @GetMapping("/hello")
+    public Mono<ResponseEntity<RouteDefinitionPayload>> getHello(HelloRequestPayload payload) {
+        return routeAdminService.getById(Optional.ofNullable(payload.getId()).orElse("dynamic-unit-routing-rule"))
+                // 使用 map 将成功获取的 payload 包装成 200 OK 响应
+                .map(ResponseEntity::ok)
+                // 如果上游 Mono 为空 (即未找到路由)，则返回 404 Not Found
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
     }
 }
