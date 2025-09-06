@@ -28,6 +28,8 @@ public interface RouteAdminService {
      */
     Mono<Void> delete(String routeId);
 
+    Mono<RouteDefinitionPayload> getById(String routeId);
+
     /**
      * 手动触发一次全局路由刷新事件
      */

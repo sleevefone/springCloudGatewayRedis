@@ -74,6 +74,19 @@ public class RouteAdminController {
         return routeAdminService.delete(id)
                 .then(Mono.just(ResponseEntity.ok().build()));
     }
+    /**
+     * 根据ID获取单个路由定义
+     * @param id 路由ID
+     * @return 路由定义或404 Not Found
+     */
+    @GetMapping("/{id}")
+    public Mono<ResponseEntity<RouteDefinitionPayload>> getById(@PathVariable String id) {
+        return routeAdminService.getById(id)
+                // 使用 map 将成功获取的 payload 包装成 200 OK 响应
+                .map(ResponseEntity::ok)
+                // 如果上游 Mono 为空 (即未找到路由)，则返回 404 Not Found
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
+    }
 
     /**
      * 手动触发一次全局路由刷新

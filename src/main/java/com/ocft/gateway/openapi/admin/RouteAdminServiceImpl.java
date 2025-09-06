@@ -84,6 +84,16 @@ public class RouteAdminServiceImpl implements RouteAdminService {
     }
 
     @Override
+    public Mono<RouteDefinitionPayload> getById(String routeId) {
+        log.info("get route from database and Redis: [{}]", routeId);
+        return Mono.fromCallable(() -> jpaRepository.findById(routeId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(optionalEntity -> optionalEntity.map(this::convertToRouteDefinitionPayload)
+                        .map(Mono::just)
+                        .orElseGet(Mono::empty));
+    }
+
+    @Override
     public void refreshRoutes() {
         log.info("Manually triggering a global route refresh.");
         eventPublisher.publishEvent(new RefreshRoutesEvent(this));

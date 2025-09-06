@@ -62,19 +62,19 @@ result:
 ```text
  {
  "id": "dynamic-unit-routing-rule",
- "uri": "lb://placeholder-service", // 占位符，无实际意义
+ "uri": "http://placeholder.invalid",
  "order": 100,
  "predicates": [
  {
  "name": "Path",
  "args": {
- "patterns": "/api/**" // 匹配所有需要单元化路由的 API 请求
+ "patterns": "/api/**" 
  }
  }
  ],
  "filters": [
  {
- "name": "UnitSelection", // 这是我们即将创建的自定义 Filter 的名字
+ "name": "UnitSelection", 
  "args": {}
  }
  ]
@@ -107,3 +107,59 @@ result:
  6.[L3 Microservice] -> An instance of order-service-in-unit-a receives the request, executes the business logic, and then returns the response along the original path.
 ```
 
+
+#### TEST UNIT:
+```text
+curl -X POST http://localhost:8888/admin/routes \
+-H "Content-Type: application/json" \
+-d '{
+    "id": "dynamic-unit-routing-rule",
+    "uri": "http://placeholder.invalid",
+    "order": 100,
+    "predicates": [
+        {
+            "name": "Path",
+            "args": {
+                "patterns": "/api/**"
+            }
+        }
+    ],
+    "filters": [
+{ "name": "StripPrefix", "args": { "_genkey_0": "1" } },         
+        {                           
+            "name": "UnitSelection",
+            "args": {}
+        }
+    ]
+}'
+```
+
+#### TEST UNIT: 
+
+```text
+    curl http://localhost:8888/api/get  -H "X-Tenant-ID: LA"
+```
+
+
+### UNIT 单元化 关键代码
+```text
+        URI newUri = UriComponentsBuilder.fromUriString(l2GatewayHost)
+                    .path(originalUri.getRawPath())
+                    .query(originalUri.getRawQuery())
+                    .build(true)
+                    .toUri();
+
+            // 关键: 必须同时覆盖两个属性
+            exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR, newUri);
+            ServerWebExchangeUtils.addOriginalRequestUrl(exchange, originalUri);
+
+            Route newRoute = Route.async()
+                    .id(l2GatewayHost) // 路由 ID
+                    .uri(newUri) // 目标 URI
+                    .predicate(x -> true) // 匹配规则，这里写死匹配所有
+                    .build();
+            // 覆盖路由目标，避免继续使用占位符 route
+            exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR,newRoute);
+
+            log.info("Dynamic routing for tenant '{}': {} -> {}", tenantId, originalUri, newUri);
+```

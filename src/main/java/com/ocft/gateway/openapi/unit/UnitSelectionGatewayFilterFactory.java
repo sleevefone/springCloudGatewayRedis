@@ -2,11 +2,14 @@
 
 package com.ocft.gateway.openapi.unit;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 
@@ -59,52 +62,70 @@ import java.net.URI;
  * 5.[L2 网关执行负载均衡] -> a. Spring Cloud Gateway 内置的负载均衡器 (Spring Cloud LoadBalancer) 从列表中选择一个实例，比如 10.10.1.5:8080（默认使用轮询策略）。 b. L2 网关将请求最终转发到 http://10.10.1.5:8080/api/orders/123。
  * 6.[L3 微服务] -> order-service-in-unit-a 的某个实例接收到请求，执行业务逻辑，然后将响应原路返回。
  */
+@Slf4j
 @Component
 public class UnitSelectionGatewayFilterFactory extends AbstractGatewayFilterFactory<Object> {
 
-    // 伪代码：注入用于查询数据库的 Service
-//    @Autowired
-    private TenantUnitMappingService mappingService;
+    public static final String DYNAMIC = "dynamic_";
+    private final TenantUnitMappingService mappingService;
 
+    // 使用构造函数注入，这是推荐的最佳实践
+    public UnitSelectionGatewayFilterFactory(TenantUnitMappingService mappingService) {
+        this.mappingService = mappingService;
+    }
     @Override
     public GatewayFilter apply(Object config) {
         return (exchange, chain) -> {
-            // 1. 从请求中获取分区键 ID (例如，从请求头 'X-Tenant-ID')
             String tenantId = exchange.getRequest().getHeaders().getFirst("X-Tenant-ID");
+            URI originalUri = exchange.getRequest().getURI();
 
             if (tenantId == null) {
-                // 如果没有 ID，可以根据业务规则决定是拒绝还是走默认单元
-                // 这里我们简单地继续执行，不进行动态路由
+                log.trace("No X-Tenant-ID header found, skipping dynamic routing for: {}", originalUri);
                 return chain.filter(exchange);
             }
 
-            // 2. 核心逻辑：根据 ID 查询数据库，决定单元
-            // !!! 警告：直接查数据库性能极差，必须加缓存 !!!
-            String unit = mappingService.getUnitByTenantId(tenantId); // 例如，返回 "LA", "LB"
+            String unit = mappingService.getUnitByTenantId(tenantId);
+            log.debug("Tenant '{}' mapped to unit '{}'", tenantId, unit);
 
-            // 3. 根据单元名称，获取 L2 网关的真实地址
-            // 这个映射关系可以放在 application.properties 中，方便配置
-            // e.g., my-gateway.units.LA=http://l2-a.com
-            String l2GatewayUri = lookupL2GatewayUriFromConfig(unit);
+            String l2GatewayHost = lookupL2GatewayHostFromConfig(unit);
 
-            if (l2GatewayUri == null) {
-                // 如果找不到对应的 L2 网关，处理错误
-                // ...
-                return chain.filter(exchange); // 或者返回错误响应
+            if (l2GatewayHost == null) {
+                log.warn("No L2 gateway mapping found for tenant '{}'. Passing through.", tenantId);
+                return chain.filter(exchange);
             }
 
-            // 4. 最关键的一步：动态修改请求的目标 URI
-            URI newUri = URI.create(l2GatewayUri);
-            exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR, newUri);
+            URI newUri = UriComponentsBuilder.fromUriString(l2GatewayHost)
+                    .path(originalUri.getRawPath())
+                    .query(originalUri.getRawQuery())
+                    .build(true)
+                    .toUri();
 
-            // 5. 将修改后的请求交给下一个 Filter 继续处理
+            // 关键: 必须同时覆盖两个属性
+            exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR, newUri);
+            ServerWebExchangeUtils.addOriginalRequestUrl(exchange, originalUri);
+
+            Route newRoute = Route.async()
+                    .id(DYNAMIC + l2GatewayHost) // 路由 ID
+                    .uri(newUri) // 目标 URI
+                    .predicate(x -> true) // 匹配规则，这里写死匹配所有
+                    .build();
+            // 覆盖路由目标，避免继续使用占位符 route
+            exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR,newRoute);
+
+            log.info("Dynamic routing for tenant '{}': {} -> {}", tenantId, originalUri, newUri);
+
             return chain.filter(exchange);
         };
     }
 
-    // 伪代码：需要你自己实现这个方法，从配置中读取 L2 网关地址
-    private String lookupL2GatewayUriFromConfig(String unit) {
-        // ...
+
+    // 伪代码：从配置中读取 L2 网关的主机地址
+    private String lookupL2GatewayHostFromConfig(String unit) {
+        // 这里应该只返回 host，例如 "http://l2-gateway-of-unit-a.com" 或 "https://httpbin.org"
+        // 在实际应用中，这部分逻辑会更复杂，可能需要从配置中心（如 Nacos, Apollo）读取
+        if ("LA".equals(unit)) { // 为了方便您的测试
+            return "https://httpbin.org";
+        }
         return null;
     }
 }

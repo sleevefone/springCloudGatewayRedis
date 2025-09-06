@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -31,7 +32,9 @@ public class AddTimestampGatewayFilterFactory extends AbstractGatewayFilterFacto
             // 如果配置中未提供 headerName，则使用默认值
             String headerNameToUse = StringUtils.hasText(config.getHeaderName()) ? config.getHeaderName() : DEFAULT_HEADER_NAME;
 
-            log.info("Executing AddTimestamp filter, adding header: '{}'", headerNameToUse);
+            Object o = exchange.getAttributes().get(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
+
+            log.info("Executing AddTimestamp filter, adding header: '{}', gateway uri: '{}'", headerNameToUse, o);
 
             // 修改请求，添加一个新的请求头
             var requestWithHeader = exchange.getRequest().mutate()
