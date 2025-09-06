@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * DTO for API endpoints to correctly capture the full route definition from the frontend,
- * including the 'enabled' state of filters.
+ * including the 'enabled' state of filters and the route itself.
  */
 @Data
 public class RouteDefinitionPayload {
@@ -19,7 +19,10 @@ public class RouteDefinitionPayload {
 
     private int order = 0;
 
+    private boolean enabled = true;
+
     private List<PredicateDefinition> predicates = new ArrayList<>();
 
     private List<FilterInfo> filters = new ArrayList<>();
+
 }

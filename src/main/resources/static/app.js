@@ -5,18 +5,19 @@ const API_BASE_URL = '/admin/routes';
 // Helper function to create a default empty form state
 const createDefaultFormState = () => ({
     id: '',
-    uri: 'lb://', // Default to load balanced URI
+    uri: 'lb://',
     order: 0,
+    enabled: true, // Default route to enabled
     predicatesJson: JSON.stringify([{
         name: 'Path',
         args: { 'patterns': '/example/**' }
     }], null, 2),
-    filters: [], // Array of { name, argsJson, enabled }
+    filters: [],
 });
 
 const app = createApp({
     setup() {
-        // --- State --- 
+        // --- State ---
         const loading = ref(true);
         const routes = ref([]);
         const dialogVisible = ref(false);
@@ -41,7 +42,7 @@ const app = createApp({
 
         // --- Event Handlers ---
         const handleCreate = () => {
-            Object.assign(form, createDefaultFormState()); // Reset form to default
+            Object.assign(form, createDefaultFormState());
             isEditMode.value = false;
             dialogVisible.value = true;
         };
@@ -51,8 +52,8 @@ const app = createApp({
             form.id = route.id;
             form.uri = route.uri;
             form.order = route.order;
+            form.enabled = route.enabled;
             form.predicatesJson = JSON.stringify(route.predicates || [], null, 2);
-            // Convert backend FilterInfo to frontend UI model
             form.filters = route.filters.map(f => ({
                 name: f.name,
                 argsJson: JSON.stringify(f.args || {}, null, 2),
@@ -65,7 +66,7 @@ const app = createApp({
             try {
                 await axios.delete(`${API_BASE_URL}/${id}`);
                 ElementPlus.ElMessage.success('Route deleted successfully.');
-                fetchRoutes(); // Refresh list
+                fetchRoutes();
             } catch (error) {
                 ElementPlus.ElMessage.error('Failed to delete route.');
                 console.error(error);
@@ -74,13 +75,12 @@ const app = createApp({
 
         const handleSubmit = async () => {
             try {
-                // 1. Prepare the payload to match backend DTO (RouteDefinitionPayload)
                 const payload = {
                     id: form.id,
                     uri: form.uri,
                     order: form.order,
+                    enabled: form.enabled,
                     predicates: JSON.parse(form.predicatesJson),
-                    // Convert frontend UI model back to backend FilterInfo
                     filters: form.filters.map(f => ({
                         name: f.name,
                         args: JSON.parse(f.argsJson),
@@ -88,7 +88,6 @@ const app = createApp({
                     }))
                 };
 
-                // 2. Send request
                 if (isEditMode.value) {
                     await axios.put(`${API_BASE_URL}/${form.id}`, payload);
                     ElementPlus.ElMessage.success('Route updated successfully.');
@@ -96,12 +95,22 @@ const app = createApp({
                     await axios.post(API_BASE_URL, payload);
                     ElementPlus.ElMessage.success('Route created successfully.');
                 }
-
-                // 3. Close dialog and refresh
                 dialogVisible.value = false;
                 fetchRoutes();
             } catch (error) {
-                ElementPlus.ElMessage.error('Failed to save route. Check JSON format and console for details.');
+                ElementPlus.ElMessage.error('Failed to save route. Check JSON format.');
+                console.error(error);
+            }
+        };
+
+        const handleToggleEnabled = async (route) => {
+            try {
+                await axios.put(`${API_BASE_URL}/${route.id}`, route);
+                ElementPlus.ElMessage.success(`Route ${route.id} has been ${route.enabled ? 'enabled' : 'disabled'}.`);
+            } catch (error) {
+                ElementPlus.ElMessage.error('Failed to update route status.');
+                // Revert the switch state on failure
+                route.enabled = !route.enabled;
                 console.error(error);
             }
         };
@@ -128,6 +137,7 @@ const app = createApp({
             handleEdit,
             handleDelete,
             handleSubmit,
+            handleToggleEnabled,
             addFilter,
             removeFilter
         };

@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gateway Route Manager</title>
-    <!-- Import Element Plus CSS -->
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css"/>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f7fa; }
@@ -28,6 +27,11 @@
         <el-table-column prop="id" label="ID" width="250"></el-table-column>
         <el-table-column prop="uri" label="URI"></el-table-column>
         <el-table-column prop="order" label="Order" width="80"></el-table-column>
+        <el-table-column label="Enabled" width="100">
+            <template #default="scope">
+                <el-switch v-model="scope.row.enabled" @change="handleToggleEnabled(scope.row)"></el-switch>
+            </template>
+        </el-table-column>
         <el-table-column label="Actions" width="180">
             <template #default="scope">
                 <el-button size="small" @click="handleEdit(scope.row)">Edit</el-button>
@@ -49,9 +53,18 @@
             <el-form-item label="URI">
                 <el-input v-model="form.uri"></el-input>
             </el-form-item>
-            <el-form-item label="Order">
-                <el-input-number v-model="form.order" :min="0"></el-input-number>
-            </el-form-item>
+            <el-row :gutter="20">
+                <el-col :span="12">
+                    <el-form-item label="Order">
+                        <el-input-number v-model="form.order" :min="0"></el-input-number>
+                    </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                    <el-form-item label="Route Enabled">
+                        <el-switch v-model="form.enabled"></el-switch>
+                    </el-form-item>
+                </el-col>
+            </el-row>
             <el-form-item label="Predicates (JSON)">
                 <el-input v-model="form.predicatesJson" type="textarea" :rows="5"></el-input>
             </el-form-item>
@@ -76,7 +89,6 @@
 
 </div>
 
-<!-- Import Vue, Element Plus, and Axios -->
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 <script src="https://unpkg.com/element-plus"></script>
 <script src="https://unpkg.com/axios/dist/axios.min.js"></script>

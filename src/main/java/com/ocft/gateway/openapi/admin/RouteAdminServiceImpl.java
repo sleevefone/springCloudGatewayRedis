@@ -44,37 +44,33 @@ public class RouteAdminServiceImpl implements RouteAdminService {
     @Override
     @Transactional
     public Mono<Void> save(RouteDefinitionPayload payload) {
-        log.info("Saving route definition for ID: {}", payload.getId());
+        log.info("Saving route [{}], enabled status: {}", payload.getId(), payload.isEnabled());
 
-        // 1. Save the complete payload (with all filters) to the database.
+        // 1. Save the complete payload to the database.
         RouteDefinitionEntity entity = convertToEntity(payload);
         Mono<Void> saveToDbMono = Mono.fromRunnable(() -> jpaRepository.save(entity))
                 .subscribeOn(Schedulers.boundedElastic()).then();
 
-        // 2. Create a standard RouteDefinition for Redis, containing ONLY the enabled filters.
-        RouteDefinition redisRouteDefinition = new RouteDefinition();
-        redisRouteDefinition.setId(payload.getId());
-        redisRouteDefinition.setUri(URI.create(payload.getUri()));
-        redisRouteDefinition.setOrder(payload.getOrder());
-        redisRouteDefinition.setPredicates(payload.getPredicates());
+        // 2. Based on the 'enabled' flag, either publish the route to Redis or delete it from Redis.
+        Mono<Void> redisOperationMono;
+        if (payload.isEnabled()) {
+            log.info("Route [{}] is enabled. Publishing to Redis.", payload.getId());
+            RouteDefinition redisRouteDefinition = new RouteDefinition();
+            redisRouteDefinition.setId(payload.getId());
+            redisRouteDefinition.setUri(URI.create(payload.getUri()));
+            redisRouteDefinition.setOrder(payload.getOrder());
+            redisRouteDefinition.setPredicates(payload.getPredicates());
+            redisRouteDefinition.setFilters(payload.getFilters().stream()
+                    .filter(FilterInfo::isEnabled)
+                    .map(this::convertToFilterDefinition)
+                    .collect(Collectors.toList()));
+            redisOperationMono = redisRepository.save(Mono.just(redisRouteDefinition));
+        } else {
+            log.info("Route [{}] is disabled. Deleting from Redis.", payload.getId());
+            redisOperationMono = redisRepository.delete(Mono.just(payload.getId()));
+        }
 
-        List<FilterDefinition> enabledFilters = payload.getFilters().stream()
-                .filter(FilterInfo::isEnabled)
-                .map(filterInfo -> {
-                    FilterDefinition fd = new FilterDefinition();
-                    fd.setName(filterInfo.getName());
-                    fd.setArgs(filterInfo.getArgs());
-                    return fd;
-                })
-                .collect(Collectors.toList());
-        redisRouteDefinition.setFilters(enabledFilters);
-
-        log.info("Publishing route [{}] to Redis with {} active filters.", redisRouteDefinition.getId(), enabledFilters.size());
-
-        // 3. Save the filtered route definition to Redis.
-        Mono<Void> saveToRedisMono = redisRepository.save(Mono.just(redisRouteDefinition));
-
-        return saveToDbMono.then(saveToRedisMono);
+        return saveToDbMono.then(redisOperationMono);
     }
 
     @Override
@@ -93,14 +89,23 @@ public class RouteAdminServiceImpl implements RouteAdminService {
         eventPublisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
+    // --- Helper Methods ---
+
+    private FilterDefinition convertToFilterDefinition(FilterInfo filterInfo) {
+        FilterDefinition fd = new FilterDefinition();
+        fd.setName(filterInfo.getName());
+        fd.setArgs(filterInfo.getArgs());
+        return fd;
+    }
+
     @SneakyThrows
     private RouteDefinitionEntity convertToEntity(RouteDefinitionPayload payload) {
         var entity = new RouteDefinitionEntity();
         entity.setId(payload.getId());
         entity.setUri(payload.getUri());
         entity.setRouteOrder(payload.getOrder());
+        entity.setEnabled(payload.isEnabled()); // Save enabled state
         entity.setPredicates(objectMapper.writeValueAsString(payload.getPredicates()));
-        // Store the full list of FilterInfo objects as JSON
         entity.setFilters(objectMapper.writeValueAsString(payload.getFilters()));
         return entity;
     }
@@ -111,8 +116,8 @@ public class RouteAdminServiceImpl implements RouteAdminService {
         payload.setId(entity.getId());
         payload.setUri(entity.getUri());
         payload.setOrder(entity.getRouteOrder());
+        payload.setEnabled(entity.isEnabled()); // Read enabled state
         payload.setPredicates(objectMapper.readValue(entity.getPredicates(), new TypeReference<List<PredicateDefinition>>() {}));
-        // Read the full list of FilterInfo objects from JSON
         payload.setFilters(objectMapper.readValue(entity.getFilters(), new TypeReference<List<FilterInfo>>() {}));
         return payload;
     }

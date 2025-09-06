@@ -1,4 +1,3 @@
-// (这是一个新文件)
 package com.ocft.gateway.openapi.admin;
 
 import jakarta.persistence.*;
@@ -24,4 +23,7 @@ public class RouteDefinitionEntity {
 
     @Column(nullable = false)
     private int routeOrder = 0;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
 }
