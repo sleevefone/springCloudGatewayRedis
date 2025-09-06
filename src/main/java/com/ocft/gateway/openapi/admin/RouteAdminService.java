@@ -10,9 +10,10 @@ public interface RouteAdminService {
 
     /**
      * 从数据库获取所有路由定义 (以Payload格式)
+     * @param query 可选的查询参数，用于筛选
      * @return A Flux of route definition payloads
      */
-    Flux<RouteDefinitionPayload> getAllRoutes();
+    Flux<RouteDefinitionPayload> getAllRoutes(String query);
 
     /**
      * 保存路由（新建或更新）到数据库和Redis

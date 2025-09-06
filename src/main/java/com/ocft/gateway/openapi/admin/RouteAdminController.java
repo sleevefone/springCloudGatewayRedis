@@ -27,11 +27,12 @@ public class RouteAdminController {
 
     /**
      * 获取所有路由定义 (以Payload格式返回给前端)
+     * @param query 可选的查询参数，用于筛选路由ID或URI
      * @return A Flux of route definition payloads
      */
     @GetMapping
-    public Flux<RouteDefinitionPayload> getAllRoutes() {
-        return routeAdminService.getAllRoutes();
+    public Flux<RouteDefinitionPayload> getAllRoutes(@RequestParam(value = "query", required = false) String query) {
+        return routeAdminService.getAllRoutes(query);
     }
 
     /**

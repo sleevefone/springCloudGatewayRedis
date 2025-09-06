@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gateway Route Manager (Component-based)</title>
+    <!-- Re-introducing Element Plus CSS -->
+    <link rel="stylesheet" href="vendor/element-plus.css"/>
     <style>
         /* --- Basic Setup --- */
         html, body, #app { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
@@ -32,13 +34,6 @@
         button.primary { background-color: #409eff; color: #fff; border-color: #409eff; }
         button.danger { background-color: #f56c6c; color: #fff; border-color: #f56c6c; }
         button:hover { opacity: 0.8; }
-
-        /* --- Table --- */
-        .native-table { width: 100%; border-collapse: collapse; }
-        .native-table th, .native-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
-        .native-table thead { background-color: #fafafa; }
-        .native-table tr:nth-child(even) { background-color: #f9f9f9; }
-        .loading-text { text-align: center; padding: 40px; font-size: 16px; color: #888; }
 
         /* --- Form --- */
         .form-area { display: flex; flex-direction: column; gap: 15px; }
@@ -72,13 +67,13 @@
                 <!-- Dynamic Component Rendering -->
                 <component 
                     :is="currentComponent" 
-                    :routes="displayedRoutes" 
+                    :routes="routes" 
                     :loading="loading"
                     :form-data="form"
                     :title="formTitle"
                     :is-edit-mode="isEditMode"
                     :search-query="searchQuery"
-                    @update:search-query="searchQuery = $event"
+                    @update:search-query="searchQuery.value = $event"
                     @create-route="showCreateForm"
                     @edit-route="showEditForm"
                     @delete-route="handleDelete"
@@ -88,6 +83,7 @@
                     @remove-filter="removeFilterFromForm"
                     @query="handleSearch"
                     @reset="handleReset"
+                    @toggle-enabled="handleToggleEnabled"
                 ></component>
             </div>
         </div>
@@ -95,8 +91,10 @@
 </div>
 
 <script src="vendor/vue.global.js"></script>
+<!-- Re-introducing Element Plus JS Library -->
+<script src="vendor/element-plus.full.js"></script>
 <script src="vendor/axios.min.js"></script>
-<script src="./app.js"></script>
+<script type="module" src="./app.js"></script>
 
 </body>
 </html>

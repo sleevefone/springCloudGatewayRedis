@@ -14,6 +14,7 @@ import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -34,11 +35,21 @@ public class RouteAdminServiceImpl implements RouteAdminService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    public Flux<RouteDefinitionPayload> getAllRoutes() {
-        return Mono.fromCallable(jpaRepository::findAll)
-                .flatMapMany(Flux::fromIterable)
-                .map(this::convertToRouteDefinitionPayload)
-                .subscribeOn(Schedulers.boundedElastic());
+    public Flux<RouteDefinitionPayload> getAllRoutes(String query) {
+        // If query is null or blank, return all routes
+        if (!StringUtils.hasText(query)) {
+            return Mono.fromCallable(jpaRepository::findAll)
+                    .flatMapMany(Flux::fromIterable)
+                    .map(this::convertToRouteDefinitionPayload)
+                    .subscribeOn(Schedulers.boundedElastic());
+        }
+        // If there is a query, perform a search
+        else {
+            return Mono.fromCallable(() -> jpaRepository.findByIdContainingIgnoreCaseOrUriContainingIgnoreCase(query, query))
+                    .flatMapMany(Flux::fromIterable)
+                    .map(this::convertToRouteDefinitionPayload)
+                    .subscribeOn(Schedulers.boundedElastic());
+        }
     }
 
     @Override
