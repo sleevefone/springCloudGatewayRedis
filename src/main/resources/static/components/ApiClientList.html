@@ -1,6 +1,12 @@
 <div>
     <div class="header">
         <h1>API Client Management</h1>
+        <!-- Search container for API Clients -->
+        <div class="search-container">
+            <input type="text" :value="searchQuery" @input="$emit('update:searchQuery', $event.target.value)" placeholder="Search by AppKey or Description...">
+            <button @click="$emit('query')">Query</button>
+            <button @click="$emit('reset')">Reset</button>
+        </div>
     </div>
 
     <div class="create-form-container">
@@ -8,7 +14,7 @@
         <button class="primary" @click="$emit('create-client', newClientDescription); newClientDescription = ''">+ Create New Client</button>
     </div>
 
-    <!-- Using a native HTML table to avoid external library bugs -->
+    <!-- Using a native HTML table -->
     <div v-if="loading" class="loading-text">Loading...</div>
     <table v-else class="native-table">
         <thead>

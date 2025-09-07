@@ -17,10 +17,18 @@ public interface ApiClientService {
     Optional<ApiClient> getByAppKey(String appKey);
 
     /**
-     * Retrieves all API clients.
-     * @return A list of all clients.
+     * Retrieves an API client by its ID.
+     * @param id The ID of the client.
+     * @return An Optional containing the ApiClient if found.
      */
-    List<ApiClient> getAllClients();
+    Optional<ApiClient> getClientById(Long id);
+
+    /**
+     * Retrieves all API clients, optionally filtered by a query string.
+     * @param query An optional string to filter by appKey or description.
+     * @return A list of all matching clients.
+     */
+    List<ApiClient> getAllClients(String query);
 
     /**
      * Saves or updates an API client.

@@ -3,6 +3,7 @@ package com.ocft.gateway.openapi.admin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,8 +24,16 @@ public class ApiClientServiceImpl implements ApiClientService {
     }
 
     @Override
-    public List<ApiClient> getAllClients() {
-        return apiClientRepository.findAll();
+    public Optional<ApiClient> getClientById(Long id) {
+        return apiClientRepository.findById(id);
+    }
+
+    @Override
+    public List<ApiClient> getAllClients(String query) {
+        if (!StringUtils.hasText(query)) {
+            return apiClientRepository.findAll();
+        }
+        return apiClientRepository.findByAppKeyContainingIgnoreCaseOrDescriptionContainingIgnoreCase(query, query);
     }
 
     @Override

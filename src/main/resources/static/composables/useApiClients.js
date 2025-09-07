@@ -1,15 +1,19 @@
-// The composable now accepts dependencies (Vue functions, axios) as arguments.
+// The composable now accepts dependencies and has full search capabilities.
 export function useApiClients({ ref }, axios) {
     const loading = ref(false);
     const clients = ref([]);
+    const searchQuery = ref('');
 
     const API_BASE_URL = '/admin/api-clients';
 
-    // This is the function we will consistently use and export.
-    const fetchClients = async () => {
+    const fetchClients = async (query = '') => {
         loading.value = true;
+        let url = API_BASE_URL;
+        if (query) {
+            url += `?query=${encodeURIComponent(query)}`;
+        }
         try {
-            const response = await axios.get(API_BASE_URL);
+            const response = await axios.get(url);
             clients.value = response.data;
         } catch (error) {
             alert('Failed to load API clients.');
@@ -17,6 +21,15 @@ export function useApiClients({ ref }, axios) {
         } finally {
             loading.value = false;
         }
+    };
+
+    const handleSearch = () => {
+        fetchClients(searchQuery.value);
+    };
+
+    const handleReset = () => {
+        searchQuery.value = '';
+        fetchClients();
     };
 
     const createClient = async (description) => {
@@ -27,7 +40,7 @@ export function useApiClients({ ref }, axios) {
         try {
             await axios.post(API_BASE_URL, { description });
             alert('API Client created successfully.');
-            await fetchClients(); // Correctly calls the internal function
+            await fetchClients();
         } catch (error) {
             alert('Failed to create API client.');
             console.error(error);
@@ -39,7 +52,7 @@ export function useApiClients({ ref }, axios) {
         try {
             await axios.delete(`${API_BASE_URL}/${id}`);
             alert('API Client deleted successfully.');
-            await fetchClients(); // Correctly calls the internal function
+            await fetchClients(searchQuery.value); // Refresh current view
         } catch (error) {
             alert('Failed to delete API client.');
             console.error(error);
@@ -48,24 +61,24 @@ export function useApiClients({ ref }, axios) {
     
     const updateClientStatus = async (client) => {
         try {
-            await axios.put(`${API_BASE_URL}/${client.id}`, client);
-            // No alert needed for a simple toggle, the refresh will confirm the change.
+            const updatedClient = { ...client, enabled: !client.enabled };
+            await axios.put(`${API_BASE_URL}/${client.id}`, updatedClient);
         } catch (error) {
             alert('Failed to update client status.');
             console.error(error);
         }
-        // Always refetch to get the source of truth from the server.
-        await fetchClients();
+        await fetchClients(searchQuery.value); // Refresh current view
     };
-
-    // The main app will call fetchClients on menu activation, so no initial call here.
 
     return {
         loading,
         clients,
+        searchQuery,
+        fetchClients, // **CRITICAL FIX: Expose the fetchClients function**
+        handleSearch,
+        handleReset,
         createClient,
         deleteClient,
-        updateClientStatus,
-        fetchClients // **CRITICAL FIX: Expose the correctly named function**
+        updateClientStatus
     };
 }

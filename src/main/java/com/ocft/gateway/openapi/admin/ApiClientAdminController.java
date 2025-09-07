@@ -21,12 +21,13 @@ public class ApiClientAdminController {
     private final ApiClientService apiClientService;
 
     /**
-     * Get all API clients.
-     * @return A list of all API clients.
+     * Get all API clients, with optional filtering by a query string.
+     * @param query An optional string to filter clients by appKey or description.
+     * @return A list of API clients.
      */
     @GetMapping
-    public List<ApiClient> getAllApiClients() {
-        return apiClientService.getAllClients();
+    public List<ApiClient> getAllApiClients(@RequestParam(value = "query", required = false) String query) {
+        return apiClientService.getAllClients(query);
     }
 
     /**
@@ -57,9 +58,7 @@ public class ApiClientAdminController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<ApiClient> updateApiClient(@PathVariable Long id, @RequestBody ApiClient apiClientDetails) {
-        return apiClientService.getAllClients().stream()
-                .filter(client -> client.getId().equals(id))
-                .findFirst()
+        return apiClientService.getClientById(id)
                 .map(existingClient -> {
                     existingClient.setDescription(apiClientDetails.getDescription());
                     existingClient.setEnabled(apiClientDetails.isEnabled());

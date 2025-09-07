@@ -20,7 +20,7 @@ window.onload = async function () {
 
     const RouteList = { template: routeListTemplate, props: ['routes', 'loading', 'searchQuery'], emits: ['create-route', 'edit-route', 'delete-route', 'update:searchQuery', 'query', 'reset', 'toggle-enabled'] };
     const RouteForm = { template: routeFormTemplate, props: ['formData', 'title', 'isEditMode'], emits: ['save-route', 'cancel', 'add-filter', 'remove-filter'] };
-    const ApiClientList = { template: apiClientListTemplate, props: ['clients', 'loading'], emits: ['create-client', 'delete-client', 'update-client-status'], setup: () => ({ newClientDescription: ref('') }) };
+    const ApiClientList = { template: apiClientListTemplate, props: ['clients', 'loading', 'searchQuery'], emits: ['create-client', 'delete-client', 'update-client-status', 'update:searchQuery', 'query', 'reset'], setup: () => ({ newClientDescription: ref('') }) };
 
     const app = createApp({
         components: { RouteList, RouteForm, ApiClientList },
@@ -34,6 +34,11 @@ window.onload = async function () {
 
             const selectMenu = async (menu) => {
                 activeMenu.value = menu;
+                if (menu === 'routes') {
+                    await routesManager.fetchRoutes();
+                } else if (menu === 'apiClients') {
+                    await apiClientsManager.fetchClients();
+                }
             };
 
             const currentComponent = computed(() => {
@@ -69,25 +74,37 @@ window.onload = async function () {
                 }
             };
 
+            const handleRouteDelete = async (id) => {
+                if (!confirm('Are you sure to delete this route?')) return;
+                try {
+                    await axios.delete(`/admin/routes/${id}`);
+                    alert('Route deleted successfully.');
+                    await routesManager.fetchRoutes();
+                } catch (error) {
+                    alert('Failed to delete route.');
+                    console.error(error);
+                }
+            };
+
             // Initial Load
-            routesManager.fetchRoutes();
+            selectMenu('routes');
 
             return {
                 activeMenu, 
                 selectMenu,
+                // **CRITICAL FIX: Return the main currentComponent, and explicitly list properties from viewAndFormManager**
                 currentComponent,
                 
-                // **CRITICAL FIX: Explicitly map all properties to avoid name collisions**
                 // Route Management
                 routes: routesManager.routes,
                 routeLoading: routesManager.loading,
                 routeSearchQuery: routesManager.searchQuery,
                 handleRouteSearch: routesManager.handleSearch,
                 handleRouteReset: routesManager.handleReset,
-                handleRouteDelete: routesManager.handleDelete,
+                handleRouteDelete,
                 handleRouteToggle,
                 
-                // Route Form
+                // Route Form (Expose properties from viewAndFormManager explicitly to avoid conflicts)
                 form: viewAndFormManager.form,
                 formTitle: viewAndFormManager.formTitle,
                 isEditMode: viewAndFormManager.isEditMode,
@@ -101,6 +118,9 @@ window.onload = async function () {
                 // API Client Management
                 clients: apiClientsManager.clients,
                 clientLoading: apiClientsManager.loading,
+                clientSearchQuery: apiClientsManager.searchQuery,
+                handleClientSearch: apiClientsManager.handleSearch,
+                handleClientReset: apiClientsManager.handleReset,
                 handleClientCreate: apiClientsManager.createClient,
                 handleClientDelete: apiClientsManager.deleteClient,
                 handleClientUpdateStatus: apiClientsManager.updateClientStatus,
