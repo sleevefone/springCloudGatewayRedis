@@ -19,14 +19,19 @@
         <label><input type="checkbox" v-model="formData.enabled"> Route Enabled</label>
     </div>
 
-    <!-- Description Fields with normal labels -->
     <div>
         <label for="route-predicate-desc">Predicate Description</label>
         <textarea id="route-predicate-desc" v-model="formData.predicateDescription" placeholder="A human-readable description of what the predicates do."></textarea>
     </div>
     <div>
-        <label for="route-predicates">Predicates (JSON)</label>
-        <textarea id="route-predicates" v-model="formData.predicatesJson"></textarea>
+        <label>Predicates</label>
+        <div v-for="(predicate, index) in formData.predicates" :key="index" class="filter-item">
+            <input type="text" v-model="predicate.name" placeholder="Predicate Name (e.g., Path)">
+            <!-- **CRITICAL FIX: Use single quotes inside the placeholder attribute to avoid compilation errors.** -->
+            <textarea v-model="predicate.argsJson" placeholder="Arguments as JSON (e.g., {'patterns': ['/api/**']})"></textarea>
+            <button class="danger" @click="$emit('remove-predicate', index)">Remove</button>
+        </div>
+        <button @click="$emit('add-predicate')">+ Add Predicate</button>
     </div>
 
     <div>
@@ -38,10 +43,10 @@
         <div v-for="(filter, index) in formData.filters" :key="index" class="filter-item">
             <label><input type="checkbox" v-model="filter.enabled"> Enabled</label>
             <input type="text" v-model="filter.name" placeholder="Filter Name">
-            <textarea v-model="filter.argsJson" placeholder="Arguments as JSON"></textarea>
+            <textarea v-model="filter.argsJson" placeholder="Arguments as JSON (e.g., {'name': 'StripPrefix', 'args': {'parts': '1'}})"></textarea>
             <button class="danger" @click="$emit('remove-filter', index)">Remove</button>
         </div>
-        <button @click="addFilter">+ Add Filter</button>
+        <button @click="$emit('add-filter')">+ Add Filter</button>
     </div>
 
     <div class="form-actions">

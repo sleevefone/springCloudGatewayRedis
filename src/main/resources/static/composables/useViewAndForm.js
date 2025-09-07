@@ -1,21 +1,19 @@
-// The composable now accepts Vue's reactivity functions as arguments.
 export function useViewAndForm({ ref, reactive, computed }) {
 
-    // --- View State ---
-    const activeView = ref('RouteList'); // RouteList or RouteForm
+    const activeView = ref('RouteList');
     const currentComponent = computed(() => activeView.value);
 
-    // --- Form State ---
     const form = reactive({});
     const isEditMode = ref(false);
     const formTitle = computed(() => isEditMode.value ? 'Edit Route' : 'Create Route');
 
-    // --- Methods ---
     const showCreateForm = () => {
         isEditMode.value = false;
         Object.assign(form, {
             id: '', uri: 'lb://', order: 0, enabled: true,
-            predicatesJson: JSON.stringify([{ name: 'Path', args: { 'patterns': '/example/**' } }], null, 2),
+            predicateDescription: '',
+            filterDescription: '',
+            predicates: [],
             filters: []
         });
         activeView.value = 'RouteForm';
@@ -26,7 +24,9 @@ export function useViewAndForm({ ref, reactive, computed }) {
         const routeCopy = JSON.parse(JSON.stringify(route));
         Object.assign(form, {
             ...routeCopy,
-            predicatesJson: JSON.stringify(routeCopy.predicates || [], null, 2),
+            predicateDescription: routeCopy.predicateDescription || '',
+            filterDescription: routeCopy.filterDescription || '',
+            predicates: (routeCopy.predicates || []).map(p => ({ ...p, argsJson: JSON.stringify(p.args || {}, null, 2) })),
             filters: (routeCopy.filters || []).map(f => ({ ...f, argsJson: JSON.stringify(f.args || {}, null, 2) }))
         });
         activeView.value = 'RouteForm';
@@ -34,6 +34,15 @@ export function useViewAndForm({ ref, reactive, computed }) {
 
     const showListView = () => {
         activeView.value = 'RouteList';
+    };
+
+    const addPredicateToForm = () => {
+        if (!form.predicates) form.predicates = [];
+        form.predicates.push({ name: 'Path', argsJson: '{"patterns": ["/example/**"]}' });
+    };
+
+    const removePredicateFromForm = (index) => {
+        form.predicates.splice(index, 1);
     };
 
     const addFilterToForm = () => {
@@ -46,15 +55,15 @@ export function useViewAndForm({ ref, reactive, computed }) {
     };
 
     return {
-        // State
         currentComponent,
         form,
         formTitle,
         isEditMode,
-        // Methods
         showCreateForm,
         showEditForm,
         showListView,
+        addPredicateToForm,
+        removePredicateFromForm,
         addFilterToForm,
         removeFilterFromForm
     };

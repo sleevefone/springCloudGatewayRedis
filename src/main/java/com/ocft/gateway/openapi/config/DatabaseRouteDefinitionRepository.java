@@ -25,6 +25,8 @@ import reactor.core.scheduler.Schedulers;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Repository
 @Slf4j
@@ -47,7 +49,8 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
             log.info("Loading routes from database is disabled by configuration 'gateway.routes.db.enabled'.");
             return Flux.empty();
         }
-        List<String> predicates = gatewayFilterService.getAvailableFilters();
+        List<String> filters = gatewayFilterService.getAvailableFilters();
+        List<String> predicates = gatewayFilterService.getAvailablePredicates();
         log.debug("Loading active routes from database.");
         // JPA 是阻塞 IO，必须在专用的弹性线程池上执行，以避免阻塞 Netty 的事件循环线程
         // 只加载启用的路由 (enabled = true)，在数据库层面进行过滤以提高效率
@@ -56,12 +59,14 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
                 .map(this::convertToRouteDefinition)
                 .filter(o->{
                     List<PredicateDefinition> predicates1 = o.getPredicates();
-                    Optional<Boolean> any = predicates1.stream()
-                            .map(predicateDefinition -> predicates.contains(predicateDefinition.getName()))
-                            .filter(tr -> !tr)
-                            .findAny();
-
-                    return any.orElse(false);
+                    Set<String> collect = predicates1.stream().map(PredicateDefinition::getName).collect(Collectors.toSet());
+                    collect.retainAll(predicates);
+                    return !collect.isEmpty();
+                }) .filter(o->{
+                    List<FilterDefinition> predicates1 = o.getFilters();
+                    Set<String> collect = predicates1.stream().map(FilterDefinition::getName).collect(Collectors.toSet());
+                    collect.retainAll(predicates);
+                    return !collect.isEmpty();
                 })
                 .subscribeOn(Schedulers.boundedElastic());
     }

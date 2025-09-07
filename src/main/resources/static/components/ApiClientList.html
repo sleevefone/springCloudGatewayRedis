@@ -1,7 +1,6 @@
 <div>
     <div class="header">
         <h1>API Client Management</h1>
-        <!-- Search container for API Clients -->
         <div class="search-container">
             <input type="text" :value="searchQuery" @input="$emit('update:searchQuery', $event.target.value)" placeholder="Search by AppKey or Description...">
             <button @click="$emit('query')">Query</button>
@@ -14,7 +13,6 @@
         <button class="primary" @click="$emit('create-client', newClientDescription); newClientDescription = ''">+ Create New Client</button>
     </div>
 
-    <!-- Using a native HTML table -->
     <div v-if="loading" class="loading-text">Loading...</div>
     <table v-else class="native-table">
         <thead>
@@ -37,7 +35,8 @@
                     </button>
                 </td>
                 <td>
-                    <button class="danger" @click="$emit('delete-client', client.id)">Delete</button>
+                    <!-- **UX FIX: Changed to dblclick to delete, title provides instruction.** -->
+                    <button class="danger" @dblclick="$emit('delete-client', client.id)" title="Double-click to delete">Delete</button>
                 </td>
             </tr>
         </tbody>

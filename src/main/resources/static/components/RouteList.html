@@ -41,17 +41,8 @@
                 </td>
                 <td>
                     <button @click="$emit('edit-route', route)">Edit</button>
-                    <!-- Replace confirm() with el-popconfirm for a better UX -->
-                    <el-popconfirm 
-                        title="Are you sure to delete this route?"
-                        confirm-button-text="Yes"
-                        cancel-button-text="No"
-                        @confirm="$emit('delete-route', route.id)"
-                    >
-                        <template #reference>
-                            <button class="danger">Delete</button>
-                        </template>
-                    </el-popconfirm>
+                    <!-- **UX FIX: Changed to dblclick to delete, title provides instruction.** -->
+                    <button class="danger" @dblclick="$emit('delete-route', route.id)" title="Double-click to delete">Delete</button>
                 </td>
             </tr>
         </tbody>
