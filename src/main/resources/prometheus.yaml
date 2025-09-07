@@ -1,0 +1,21 @@
+scrape_configs:
+  - job_name: 'spring-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8888'] # 如果 Prometheus 在 Docker 中运行，请使用此地址指向宿主机
+      # - targets: ['localhost:8888'] # 如果 Prometheus 和网关在同一台机器上运行
+
+      # 计算每个路由ID的服务器错误（5xx）占比
+#      sum(rate(spring_cloud_gateway_requests_seconds_count{application="openapi-gateway", outcome="SERVER_ERROR"}[1m])) by (routeId)
+#      /
+#      sum(rate(spring_cloud_gateway_requests_seconds_count{application="openapi-gateway"}[1m])) by (routeId)
+#      * 100˚
+
+# 计算过去1分钟内，每个路由ID的95分位延迟（单位：秒）
+#  histogram_quantile(0.95, sum(rate(spring_cloud_gateway_requests_seconds_bucket{application="openapi-gateway"}[1m])) by (le, routeId))
+
+
+# 计算过去1分钟内，每个路由ID的平均每秒请求数
+#  rate(spring_cloud_gateway_requests_seconds_count{application="openapi-gateway"}[1m])
+
+#  http://localhost:8888/actuator/prometheus

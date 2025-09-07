@@ -63,3 +63,82 @@ SADD gateway:ip:whitelist "192.168.1.1" "10.0.0.1" "0:0:0:0:0:0:0:1"
 SMEMBERS gateway:ip:whitelist
 
 ```
+
+### 黑白测试
+```text
+ curl -X POST http://localhost:8888/admin/routes \
+-H "Content-Type: application/json" \
+-d '{
+    "id": "whiteList_rule",
+    "uri": "http://localhost:9999",
+    "order": 0,
+    "predicates": [
+        {
+            "name": "Path",
+            "args": {
+                "patterns": "/api/**"
+            }
+        }
+    ],
+    "filters": [
+        {
+            "name": "IpWhiteBlackList",
+            "args": {
+              "mode": "whitelist",
+              "whiteListKey": "gateway:ip:whitelist",
+              "blackListKey": "gateway:ip:blacklist"
+            }
+    ]
+}'
+```
+test 
+```text
+openapi % curl -X POST 'http://localhost:8888/api/admin/routes/hello'  -H "X-Tenant-ID: LB" -H "traceId: xxx123" -H "X-Trace-ID: yyy134"-d '{"11111111":"test"}'
+result: {"id":"dynamic-unit-routing-rule","uri":"http://localhost:8081","order":100,"enabled":true,"predicates":[{"name":"Path","args":{"patterns":"/api/**"}}],"filters":[{"name":"StripPrefix","args":{"_genkey_0":"1"}},{"name":"UnitSelection","args":{}}],"predicateDescription":null,"filterDescription":null}
+```
+
+### **A/B 测试或灰度路由过滤器**：
+```text
+curl -X POST http://localhost:8888/admin/routes \
+-H "Content-Type: application/json" \
+-d '{
+    "id": "my-service-canary-route",
+    "uri": "http://my-stable-service:8080",
+    "order": 10,
+    "predicates": [
+        {
+            "name": "Path",
+            "args": {
+                "patterns": "/my-service/**"
+            }
+        }
+    ],
+    "filters": [
+        {
+            "name": "StripPrefix",
+            "args": {
+                "_genkey_0": "1"
+            }
+        },
+        {
+            "name": "CanaryRouting",
+            "args": {
+                "headerName": "X-Version",
+                "headerValue": "v2",
+                "canaryUri": "http://my-canary-service:8080"
+            }
+        }
+    ]
+}'
+
+```
+1. Request to the Stable Version (Default Traffic) This request does not have the X-Version header, so it will be routed to the stable service.
+  ```text
+    # This request will be sent to http://my-stable-service:8080/some/endpoint
+    curl http://localhost:8888/my-service/some/endpoint
+  ``` 
+2. Request to the Canary Version (A/B Test Traffic) This request includes the X-Version: v2 header, which will be detected by your filter and routed to the canary service.
+  ```text
+  # This request will be sent to http://my-canary-service:8080/some/endpoint
+  curl http://localhost:8888/my-service/some/endpoint -H "X-Version: v2"
+  ```
