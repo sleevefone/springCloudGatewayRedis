@@ -42,7 +42,6 @@ public class ApiClientAdminController {
         newClient.setDescription(apiClientPayload.getDescription());
         newClient.setEnabled(true);
 
-        // Generate secure, random keys
         newClient.setAppKey("AK" + UUID.randomUUID().toString().replace("-", ""));
         newClient.setSecretKey("SK" + UUID.randomUUID().toString().replace("-", ""));
 

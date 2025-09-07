@@ -86,7 +86,9 @@ public class RouteAdminServiceImpl implements RouteAdminService {
         filter2.removeAll(predicates);
         if (!CollectionUtils.isEmpty(filter2)){
             payload.setEnabled(false);
-            entity.setFilterDescription("predicate(s) not found");
+            entity.setPredicateDescription("predicate(s) not found");
+        }else {
+            entity.setPredicateDescription(null);
         }
     }
 
@@ -97,6 +99,8 @@ public class RouteAdminServiceImpl implements RouteAdminService {
         if (!CollectionUtils.isEmpty(filter1)){
             payload.setEnabled(false);
             entity.setFilterDescription("filter(s) not found");
+        }else {
+            entity.setFilterDescription(null);
         }
     }
 

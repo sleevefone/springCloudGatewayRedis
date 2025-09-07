@@ -63,10 +63,10 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
                     collect.retainAll(predicates);
                     return !collect.isEmpty();
                 }) .filter(o->{
-                    List<FilterDefinition> predicates1 = o.getFilters();
-                    Set<String> collect = predicates1.stream().map(FilterDefinition::getName).collect(Collectors.toSet());
-                    collect.retainAll(predicates);
-                    return !collect.isEmpty();
+                    List<FilterDefinition> filter = o.getFilters();
+                    Set<String> filterSet = filter.stream().map(FilterDefinition::getName).collect(Collectors.toSet());
+                    filterSet.retainAll(filters);
+                    return !filterSet.isEmpty();
                 })
                 .subscribeOn(Schedulers.boundedElastic());
     }
