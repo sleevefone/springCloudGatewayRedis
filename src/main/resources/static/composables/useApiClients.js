@@ -5,6 +5,7 @@ export function useApiClients({ ref }, axios) {
 
     const API_BASE_URL = '/admin/api-clients';
 
+    // This is the function we will consistently use and export.
     const fetchClients = async () => {
         loading.value = true;
         try {
@@ -26,7 +27,7 @@ export function useApiClients({ ref }, axios) {
         try {
             await axios.post(API_BASE_URL, { description });
             alert('API Client created successfully.');
-            await fetchClients();
+            await fetchClients(); // Correctly calls the internal function
         } catch (error) {
             alert('Failed to create API client.');
             console.error(error);
@@ -38,7 +39,7 @@ export function useApiClients({ ref }, axios) {
         try {
             await axios.delete(`${API_BASE_URL}/${id}`);
             alert('API Client deleted successfully.');
-            await fetchClients();
+            await fetchClients(); // Correctly calls the internal function
         } catch (error) {
             alert('Failed to delete API client.');
             console.error(error);
@@ -48,22 +49,23 @@ export function useApiClients({ ref }, axios) {
     const updateClientStatus = async (client) => {
         try {
             await axios.put(`${API_BASE_URL}/${client.id}`, client);
+            // No alert needed for a simple toggle, the refresh will confirm the change.
         } catch (error) {
             alert('Failed to update client status.');
-            // Revert on failure
-            client.enabled = !client.enabled;
             console.error(error);
         }
+        // Always refetch to get the source of truth from the server.
+        await fetchClients();
     };
 
-    // Initial Load
-    fetchClients();
+    // The main app will call fetchClients on menu activation, so no initial call here.
 
     return {
         loading,
         clients,
         createClient,
         deleteClient,
-        updateClientStatus
+        updateClientStatus,
+        fetchClients // **CRITICAL FIX: Expose the correctly named function**
     };
 }

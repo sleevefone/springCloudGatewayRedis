@@ -32,14 +32,8 @@ window.onload = async function () {
 
             const activeMenu = ref('routes');
 
-            // Centralized navigation logic that fetches data on activation
             const selectMenu = async (menu) => {
                 activeMenu.value = menu;
-                if (menu === 'routes') {
-                    await routesManager.fetchRoutes();
-                } else if (menu === 'apiClients') {
-                    await apiClientsManager.fetchClients();
-                }
             };
 
             const currentComponent = computed(() => {
@@ -47,8 +41,6 @@ window.onload = async function () {
                 if (activeMenu.value === 'apiClients') return 'ApiClientList';
                 return null;
             });
-
-            // --- All handlers now force a re-fetch from the backend to ensure UI consistency ---
 
             const handleRouteSubmit = async (formData) => {
                 try {
@@ -59,7 +51,7 @@ window.onload = async function () {
                     await axios.post('/admin/routes', payload);
                     alert(`Route ${viewAndFormManager.isEditMode.value ? 'updated' : 'created'} successfully.`);
                     viewAndFormManager.showListView();
-                    await routesManager.fetchRoutes(); // Force refresh
+                    await routesManager.fetchRoutes();
                 } catch (error) {
                     alert('Failed to save route. Check JSON format.');
                     console.error(error);
@@ -70,66 +62,48 @@ window.onload = async function () {
                 try {
                     const updatedRoute = { ...route, enabled: !route.enabled };
                     await axios.post('/admin/routes', updatedRoute);
-                    await routesManager.fetchRoutes(); // Force refresh
+                    await routesManager.fetchRoutes();
                 } catch (error) {
                     alert('Failed to update route status.');
                     console.error(error);
                 }
             };
 
-            const handleRouteDelete = async (id) => {
-                if (!confirm('Are you sure to delete this route?')) return;
-                try {
-                    await axios.delete(`/admin/routes/${id}`);
-                    alert('Route deleted successfully.');
-                    await routesManager.fetchRoutes(); // Force refresh
-                } catch (error) {
-                    alert('Failed to delete route.');
-                    console.error(error);
-                }
-            };
-
-            const handleClientCreate = async (description) => {
-                await apiClientsManager.createClient(description); // The composable already refetches
-            };
-
-            const handleClientDelete = async (id) => {
-                await apiClientsManager.deleteClient(id); // The composable already refetches
-            };
-
-            const handleClientUpdateStatus = async (client) => {
-                const originalStatus = client.enabled;
-                try {
-                    // The API expects the *new* state, so we don't need to toggle it here.
-                    await apiClientsManager.updateClientStatus(client);
-                } catch (error) {
-                    // No need to revert, the re-fetch will get the correct state from the server.
-                }
-                await apiClientsManager.fetchClients(); // Force refresh
-            };
-
             // Initial Load
-            selectMenu('routes');
+            routesManager.fetchRoutes();
 
             return {
-                activeMenu, selectMenu, currentComponent,
+                activeMenu, 
+                selectMenu,
+                currentComponent,
+                
+                // **CRITICAL FIX: Explicitly map all properties to avoid name collisions**
                 // Route Management
                 routes: routesManager.routes,
                 routeLoading: routesManager.loading,
                 routeSearchQuery: routesManager.searchQuery,
                 handleRouteSearch: routesManager.handleSearch,
                 handleRouteReset: routesManager.handleReset,
-                handleRouteDelete,
+                handleRouteDelete: routesManager.handleDelete,
                 handleRouteToggle,
+                
                 // Route Form
-                ...viewAndFormManager,
+                form: viewAndFormManager.form,
+                formTitle: viewAndFormManager.formTitle,
+                isEditMode: viewAndFormManager.isEditMode,
+                showCreateForm: viewAndFormManager.showCreateForm,
+                showEditForm: viewAndFormManager.showEditForm,
+                showListView: viewAndFormManager.showListView,
+                addFilterToForm: viewAndFormManager.addFilterToForm,
+                removeFilterFromForm: viewAndFormManager.removeFilterFromForm,
                 handleRouteSubmit,
+
                 // API Client Management
                 clients: apiClientsManager.clients,
                 clientLoading: apiClientsManager.loading,
-                handleClientCreate,
-                handleClientDelete,
-                handleClientUpdateStatus,
+                handleClientCreate: apiClientsManager.createClient,
+                handleClientDelete: apiClientsManager.deleteClient,
+                handleClientUpdateStatus: apiClientsManager.updateClientStatus,
             };
         }
     });
