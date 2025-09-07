@@ -144,3 +144,9 @@ curl -X POST http://localhost:8888/admin/routes \
   ```
 
 
+
+
+curl -X POST 'http://localhost:8888/api/admin/routes/hello'  -H "X-Tenant-ID: LB" -H "traceId: xxx123" -H "X-Trace-ID: yyy134" -H "X-Version: v2"  -d '{"11111111":"test"}'
+buukfayn@buuks openapi % 
+
+

@@ -58,8 +58,8 @@ public class ErrorHandlingGlobalFilter implements GlobalFilter, Ordered {
             ServerHttpResponse response = exchange.getResponse();
             response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
 
-            String routeId = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
-            String system = (routeId != null) ? routeId : "DEFAULT";
+            Object routeId = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
+            String system = (routeId != null) ? routeId.toString() : "DEFAULT";
             String errorCode = system + "-500";
 
             if (!response.getHeaders().containsKey(ERROR_HEADER_NAME)) {
@@ -88,6 +88,6 @@ public class ErrorHandlingGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE; // Run as a post-filter for response modification
+        return Ordered.LOWEST_PRECEDENCE-100; // Run as a post-filter for response modification
     }
 }

@@ -26,7 +26,7 @@ import java.util.List;
  */
 @Slf4j
 @Component
-public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
+public class RespLoggingGlobalFilter implements GlobalFilter, Ordered {
 
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
     private static final String X_REAL_IP = "X-Real-IP";
@@ -40,60 +40,8 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
         HttpHeaders headers = request.getHeaders();
         String realIp = getRealIp(request);
 
-        // 1. 记录基本信息：方法、路径、查询参数、真实 IP
-        StringBuilder logMessage = new StringBuilder()
-                .append("=> ")
-                .append(method)
-                .append(" ")
-                .append(request.getURI().getPath())
-                .append(" REQ::IP: ")
-                .append(realIp)
-                .append(" REQ::PARAM: ")
-                .append(queryParams.isEmpty() ? "{}" : queryParams);
-
-        // 2. 记录请求头（使用 DEBUG 级别避免生产环境日志过多）
-        if (!headers.isEmpty()) {
-            log.info("REQ::HEADERS: {}", headers);
-        }
         ServerHttpResponse originalResponse = exchange.getResponse();
-        log.info("RESP::STATUS: {} | HEADERS: {}", originalResponse.getStatusCode(), originalResponse.getHeaders());
-
-        // 3. 记录基本信息（如果没有请求体或有查询参数）
-        if (!hasBody || !CollectionUtils.isEmpty(queryParams)) {
-            log.info(logMessage.toString());
-        }
-
-        // 4. 如果请求包含请求体，则额外记录请求体
-        if (hasBody) {
-            return ServerWebExchangeUtils.cacheRequestBody(exchange, (serverHttpRequest) -> {
-                Mono<String> cachedBody = serverHttpRequest.getBody()
-                        .map(dataBuffer -> {
-                            byte[] bytes = new byte[dataBuffer.readableByteCount()];
-                            dataBuffer.read(bytes);
-                            DataBufferUtils.release(dataBuffer);
-                            return new String(bytes, StandardCharsets.UTF_8);
-                        })
-                        .collectList()
-                        .map(list -> String.join("", list))
-                        .defaultIfEmpty("");
-
-                return cachedBody.flatMap(body -> {
-                    if (!body.isEmpty()) {
-                        // 使用 DEBUG 级别记录请求体
-                        log.info("REQ::BODY: {}", body.replaceAll("[\r\n\t]", ""));
-
-                    }
-                    // 1. 记录响应头
-
-                    // 如果有请求体，追加到日志
-                    if (!CollectionUtils.isEmpty(queryParams)) {
-                        log.info(logMessage.toString());
-                    }
-                    // 继续过滤器链
-                    return chain.filter(exchange.mutate().request(serverHttpRequest).build());
-                });
-            });
-        }
+        log.info("RESP::HEADERS: {}, realIp: {},STATUS: {}", originalResponse.getHeaders(), realIp, originalResponse.getStatusCode());
 
         // 5. 对于没有请求体的请求 (GET, DELETE 等)，直接继续过滤器链
         return chain.filter(exchange);
