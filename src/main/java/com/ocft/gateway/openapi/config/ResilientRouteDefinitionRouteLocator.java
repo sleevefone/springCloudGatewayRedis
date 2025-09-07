@@ -8,7 +8,6 @@
 //import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
 //import org.springframework.cloud.gateway.route.Route;
 //import org.springframework.cloud.gateway.route.RouteDefinition;
-//import org.springframework.cloud.gateway.support.ConfigurationService;
 //import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 //import org.springframework.cloud.gateway.route.RouteDefinitionRouteLocator;
 //import org.springframework.context.annotation.Primary;
@@ -17,7 +16,6 @@
 //import reactor.core.publisher.Mono;
 //
 //import java.util.List;
-//import java.util.Map;
 //
 ///**
 // * A resilient implementation of a Route Locator.
@@ -31,10 +29,12 @@
 //@Slf4j
 //public class ResilientRouteDefinitionRouteLocator extends RouteDefinitionRouteLocator {
 //
-//    public ResilientRouteDefinitionRouteLocator(RouteDefinitionLocator routeDefinitionLocator,
-//    List<RoutePredicateFactory> predicates, List<GatewayFilterFactory> gatewayFilterFactories,
-//    GatewayProperties gatewayProperties, ConfigurationService configurationService) {
-//        super(routeDefinitionLocator, predicates, gatewayFilterFactories, gatewayProperties, configurationService);
+//    public ResilientRouteDefinitionRouteLocator(
+//            RouteDefinitionLocator routeDefinitionLocator,
+//            List<RoutePredicateFactory> predicateFactories,
+//            List<GatewayFilterFactory> filterFactories,
+//            GatewayProperties gatewayProperties) {
+//        super(routeDefinitionLocator, predicateFactories, filterFactories, gatewayProperties);
 //    }
 //
 //    /**
@@ -43,16 +43,17 @@
 //     * @return A Mono containing the converted Route, or an empty Mono if conversion fails.
 //     */
 //    @Override
-//    public Flux<Route> getRoutesByMetadata(Map<String, Object> metadata) {
-//        // Use the reactive error handling operator `onErrorResume`.
-//        // This is the idiomatic way to handle errors in a reactive stream.
-//        return super.convertToRoute(routeDefinition)
-//            .onErrorResume(e -> {
-//                // If an error occurs during conversion, log it and return an empty Mono.
-//                // This effectively skips the invalid route without terminating the entire stream.
-//                log.error("Failed to load route definition with id: '{}'. Reason: {}. Skipping this route.",
-//                          routeDefinition.getId(), e.getMessage(), e);
-//                return Mono.empty();
-//            });
+//    protected Mono<Route> convertToRoute(RouteDefinition routeDefinition) {
+//        try {
+//            // Attempt to convert the route definition as normal.
+//            return super.convertToRoute(routeDefinition);
+//        } catch (Exception e) {
+//            // If any exception occurs during conversion (e.g., predicate name not found),
+//            // log the error and return an empty Mono.
+//            // This prevents a single bad route from crashing the entire application startup.
+//            log.error("Failed to load route definition with id: '{}'. Reason: {}. Skipping this route.",
+//                      routeDefinition.getId(), e.getMessage());
+//            return Mono.empty();
+//        }
 //    }
 //}
