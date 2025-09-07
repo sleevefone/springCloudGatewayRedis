@@ -1,5 +1,5 @@
-// The composable now accepts dependencies (Vue functions, axios) as arguments.
-export function useRoutes({ ref }, axios) {
+// The composable now accepts ElMessage for notifications.
+export function useRoutes({ ref }, axios, ElMessage) {
 
     const loading = ref(true);
     const routes = ref([]);
@@ -17,7 +17,7 @@ export function useRoutes({ ref }, axios) {
             const response = await axios.get(url);
             routes.value = response.data;
         } catch (error) {
-            alert('Failed to load routes.');
+            ElMessage.error('Failed to load routes.');
             console.error(error);
         } finally {
             loading.value = false;
@@ -25,13 +25,13 @@ export function useRoutes({ ref }, axios) {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Are you sure to delete this route?')) return;
+        // The confirmation is now handled by el-popconfirm in the template.
         try {
             await axios.delete(`${API_BASE_URL}/${id}`);
-            alert('Route deleted successfully.');
+            ElMessage.success('Route deleted successfully.');
             await fetchRoutes(searchQuery.value);
         } catch (error) {
-            alert('Failed to delete route.');
+            ElMessage.error('Failed to delete route.');
             console.error(error);
         }
     };
@@ -45,16 +45,15 @@ export function useRoutes({ ref }, axios) {
         fetchRoutes();
     };
 
-    // Initial Load
-    fetchRoutes();
+    // Initial Load is handled by the main app now.
 
     return {
         loading,
         routes,
         searchQuery,
+        fetchRoutes,
         handleDelete,
         handleSearch,
         handleReset,
-        fetchRoutes
     };
 }

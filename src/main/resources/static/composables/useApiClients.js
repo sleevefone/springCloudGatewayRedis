@@ -1,5 +1,5 @@
-// The composable now accepts dependencies and has full search capabilities.
-export function useApiClients({ ref }, axios) {
+// The composable now accepts ElMessage for notifications.
+export function useApiClients({ ref }, axios, ElMessage) {
     const loading = ref(false);
     const clients = ref([]);
     const searchQuery = ref('');
@@ -16,7 +16,7 @@ export function useApiClients({ ref }, axios) {
             const response = await axios.get(url);
             clients.value = response.data;
         } catch (error) {
-            alert('Failed to load API clients.');
+            ElMessage.error('Failed to load API clients.');
             console.error(error);
         } finally {
             loading.value = false;
@@ -34,47 +34,47 @@ export function useApiClients({ ref }, axios) {
 
     const createClient = async (description) => {
         if (!description) {
-            alert('Description cannot be empty.');
+            ElMessage.warning('Description cannot be empty.');
             return;
         }
         try {
             await axios.post(API_BASE_URL, { description });
-            alert('API Client created successfully.');
+            ElMessage.success('API Client created successfully.');
             await fetchClients();
         } catch (error) {
-            alert('Failed to create API client.');
+            ElMessage.error('Failed to create API client.');
             console.error(error);
         }
     };
 
     const deleteClient = async (id) => {
-        if (!confirm('Are you sure to delete this API client? This is irreversible.')) return;
+        // The confirmation is now handled by el-popconfirm in the template.
         try {
             await axios.delete(`${API_BASE_URL}/${id}`);
-            alert('API Client deleted successfully.');
-            await fetchClients(searchQuery.value); // Refresh current view
+            ElMessage.success('API Client deleted successfully.');
+            await fetchClients(searchQuery.value);
         } catch (error) {
-            alert('Failed to delete API client.');
+            ElMessage.error('Failed to delete API client.');
             console.error(error);
         }
     };
-    
+
     const updateClientStatus = async (client) => {
         try {
-            const updatedClient = { ...client, enabled: !client.enabled };
-            await axios.put(`${API_BASE_URL}/${client.id}`, updatedClient);
+            await axios.put(`${API_BASE_URL}/${client.id}`, client);
+            ElMessage.success(`Client ${client.appKey} has been ${client.enabled ? 'enabled' : 'disabled'}.`);
         } catch (error) {
-            alert('Failed to update client status.');
+            ElMessage.error('Failed to update client status.');
             console.error(error);
         }
-        await fetchClients(searchQuery.value); // Refresh current view
+        // No need to refetch here, as the parent handler will do it.
     };
 
     return {
         loading,
         clients,
         searchQuery,
-        fetchClients, // **CRITICAL FIX: Expose the fetchClients function**
+        fetchClients,
         handleSearch,
         handleReset,
         createClient,

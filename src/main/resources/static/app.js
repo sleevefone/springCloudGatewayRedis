@@ -5,6 +5,8 @@ import { useApiClients } from './composables/useApiClients.js';
 window.onload = async function () {
     const { createApp, ref, reactive, computed } = Vue;
     const axiosInstance = window.axios;
+    // Get ElMessage for modern, non-blocking notifications
+    const { ElMessage } = window.ElementPlus;
 
     const fetchTemplate = async (path) => {
         const response = await fetch(path);
@@ -26,9 +28,10 @@ window.onload = async function () {
         components: { RouteList, RouteForm, ApiClientList },
         setup() {
             const vueDeps = { ref, reactive, computed };
-            const routesManager = useRoutes(vueDeps, axiosInstance);
+            // Inject ElMessage into the composables that need it
+            const routesManager = useRoutes(vueDeps, axiosInstance, ElMessage);
             const viewAndFormManager = useViewAndForm(vueDeps);
-            const apiClientsManager = useApiClients(vueDeps, axiosInstance);
+            const apiClientsManager = useApiClients(vueDeps, axiosInstance, ElMessage);
 
             const activeMenu = ref('routes');
 
@@ -54,11 +57,11 @@ window.onload = async function () {
                     payload.filters.forEach(f => delete f.argsJson);
                     if (!viewAndFormManager.isEditMode.value && !payload.id) delete payload.id;
                     await axios.post('/admin/routes', payload);
-                    alert(`Route ${viewAndFormManager.isEditMode.value ? 'updated' : 'created'} successfully.`);
+                    ElMessage.success(`Route ${viewAndFormManager.isEditMode.value ? 'updated' : 'created'} successfully.`);
                     viewAndFormManager.showListView();
                     await routesManager.fetchRoutes();
                 } catch (error) {
-                    alert('Failed to save route. Check JSON format.');
+                    ElMessage.error('Failed to save route. Check JSON format.');
                     console.error(error);
                 }
             };
@@ -67,21 +70,10 @@ window.onload = async function () {
                 try {
                     const updatedRoute = { ...route, enabled: !route.enabled };
                     await axios.post('/admin/routes', updatedRoute);
+                    ElMessage.success(`Route ${updatedRoute.id} status updated.`);
                     await routesManager.fetchRoutes();
                 } catch (error) {
-                    alert('Failed to update route status.');
-                    console.error(error);
-                }
-            };
-
-            const handleRouteDelete = async (id) => {
-                if (!confirm('Are you sure to delete this route?')) return;
-                try {
-                    await axios.delete(`/admin/routes/${id}`);
-                    alert('Route deleted successfully.');
-                    await routesManager.fetchRoutes();
-                } catch (error) {
-                    alert('Failed to delete route.');
+                    ElMessage.error('Failed to update route status.');
                     console.error(error);
                 }
             };
@@ -90,21 +82,20 @@ window.onload = async function () {
             selectMenu('routes');
 
             return {
-                activeMenu, 
+                activeMenu,
                 selectMenu,
-                // **CRITICAL FIX: Return the main currentComponent, and explicitly list properties from viewAndFormManager**
                 currentComponent,
-                
+
                 // Route Management
                 routes: routesManager.routes,
                 routeLoading: routesManager.loading,
                 routeSearchQuery: routesManager.searchQuery,
                 handleRouteSearch: routesManager.handleSearch,
                 handleRouteReset: routesManager.handleReset,
-                handleRouteDelete,
+                handleRouteDelete: routesManager.handleDelete,
                 handleRouteToggle,
-                
-                // Route Form (Expose properties from viewAndFormManager explicitly to avoid conflicts)
+
+                // Route Form
                 form: viewAndFormManager.form,
                 formTitle: viewAndFormManager.formTitle,
                 isEditMode: viewAndFormManager.isEditMode,
@@ -128,5 +119,7 @@ window.onload = async function () {
         }
     });
 
+    // Re-enable Element Plus to make ElMessage and ElPopconfirm available globally
+    app.use(ElementPlus);
     app.mount('#app');
 };
