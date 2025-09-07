@@ -42,6 +42,8 @@ public class RouteAdminController {
      */
     @PostMapping
     public Mono<ResponseEntity<Object>> createRoute(@RequestBody RouteDefinitionPayload payload) {
+
+
         return routeAdminService.save(payload)
                 .then(Mono.just(ResponseEntity.created(URI.create("/admin/routes/" + payload.getId())).build()))
                 .onErrorResume(e -> {

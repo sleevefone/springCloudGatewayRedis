@@ -3,6 +3,8 @@ package com.ocft.gateway.openapi.admin;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.Date;
+
 @Entity
 @Table(name = "gateway_routes")
 @Data
@@ -26,4 +28,35 @@ public class RouteDefinitionEntity {
 
     @Column(nullable = false)
     private boolean enabled = true;
+
+    @Column(nullable = false)
+    private String predicateDescription;
+
+    @Column(nullable = false)
+    private String filterDescription;
+
+    @Column(nullable = false)
+    private String creator;
+
+    @Column(nullable = false)
+    private String updater;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(nullable = false, updatable = false)
+    private Date createTime;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(nullable = false)
+    private Date updateTime;
+
+    @PrePersist
+    protected void onCreate() {
+        createTime = new Date();
+        updateTime = new Date();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updateTime = new Date();
+    }
 }

@@ -3,8 +3,9 @@ import { useViewAndForm } from './composables/useViewAndForm.js';
 import { useApiClients } from './composables/useApiClients.js';
 
 window.onload = async function () {
-    // 1. Securely get Vue functions from the global scope.
-    const { createApp, ref, computed } = Vue;
+    // 1. Securely get Vue and its functions from the global scope.
+    const { createApp, ref, reactive, computed } = Vue;
+    const axiosInstance = window.axios;
 
     // --- Robust Component Loading ---
     const fetchTemplate = async (path) => {
@@ -52,10 +53,13 @@ window.onload = async function () {
             // --- State for Main Menu Navigation ---
             const activeMenu = ref('routes'); // 'routes' or 'apiClients'
 
-            // --- Composables for each feature ---
-            const routesManager = useRoutes(Vue);
-            const viewAndFormManager = useViewAndForm(Vue);
-            const apiClientsManager = useApiClients(Vue);
+            // 2. Correctly package dependencies for injection.
+            const vueDeps = { ref, reactive, computed };
+
+            // 3. Inject ALL dependencies into our composables.
+            const routesManager = useRoutes(vueDeps, axiosInstance);
+            const viewAndFormManager = useViewAndForm(vueDeps);
+            const apiClientsManager = useApiClients(vueDeps, axiosInstance);
 
             const currentComponent = computed(() => {
                 if (activeMenu.value === 'routes') {
@@ -104,15 +108,30 @@ window.onload = async function () {
             return {
                 activeMenu,
                 currentComponent,
-                ...routesManager,
+                // Explicitly map properties to avoid name collisions
+                // Route Management
+                routes: routesManager.routes,
+                routeLoading: routesManager.loading,
+                routeSearchQuery: routesManager.searchQuery,
+                handleRouteSearch: routesManager.handleSearch,
+                handleRouteReset: routesManager.handleReset,
+                handleRouteDelete: routesManager.handleDelete,
+                handleRouteToggle,
+                // Route Form
                 ...viewAndFormManager,
-                ...apiClientsManager,
-                handleSubmit: handleRouteSubmit,
-                handleToggleEnabled: handleRouteToggle
+                handleRouteSubmit,
+                // API Client Management
+                clients: apiClientsManager.clients,
+                clientLoading: apiClientsManager.loading,
+                handleClientCreate: apiClientsManager.createClient,
+                handleClientDelete: apiClientsManager.deleteClient,
+                handleClientUpdateStatus: apiClientsManager.updateClientStatus,
             };
         }
     });
 
-    app.use(ElementPlus);
+    // No longer using ElementPlus, so this is removed.
+    // app.use(ElementPlus);
+
     app.mount('#app');
 };

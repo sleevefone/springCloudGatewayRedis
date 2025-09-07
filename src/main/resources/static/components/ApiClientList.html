@@ -3,29 +3,37 @@
         <h1>API Client Management</h1>
     </div>
 
-    <!-- Create Client Form -->
     <div class="create-form-container">
         <input type="text" v-model="newClientDescription" placeholder="Enter a description for the new client...">
-        <button class="primary" @click="$emit('create-client', newClientDescription); newClientDescription.value = ''">+ Create New Client</button>
+        <button class="primary" @click="$emit('create-client', newClientDescription); newClientDescription = ''">+ Create New Client</button>
     </div>
 
-    <!-- API Clients Table -->
-    <el-table :data="clients" stripe v-loading="loading">
-        <el-table-column prop="description" label="Description"></el-table-column>
-        <el-table-column prop="appKey" label="AppKey" width="300"></el-table-column>
-        <el-table-column prop="secretKey" label="SecretKey" width="300"></el-table-column>
-        <el-table-column label="Enabled" width="100">
-            <template #default="scope">
-                <el-switch 
-                    v-model="scope.row.enabled" 
-                    @change="$emit('update-client-status', scope.row)">
-                </el-switch>
-            </template>
-        </el-table-column>
-        <el-table-column label="Actions" width="120">
-            <template #default="scope">
-                <button class="danger" @click="$emit('delete-client', scope.row.id)">Delete</button>
-            </template>
-        </el-table-column>
-    </el-table>
+    <!-- Using a native HTML table to avoid external library bugs -->
+    <div v-if="loading" class="loading-text">Loading...</div>
+    <table v-else class="native-table">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>AppKey</th>
+                <th>SecretKey</th>
+                <th>Enabled</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr v-for="client in clients" :key="client.id">
+                <td>{{ client.description }}</td>
+                <td>{{ client.appKey }}</td>
+                <td>{{ client.secretKey }}</td>
+                <td>
+                    <button @click="$emit('update-client-status', client)">
+                        {{ client.enabled ? 'Disable' : 'Enable' }}
+                    </button>
+                </td>
+                <td>
+                    <button class="danger" @click="$emit('delete-client', client.id)">Delete</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>

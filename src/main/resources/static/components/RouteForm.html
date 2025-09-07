@@ -18,11 +18,21 @@
     <div>
         <label><input type="checkbox" v-model="formData.enabled"> Route Enabled</label>
     </div>
+
+    <!-- Description Fields with normal labels -->
+    <div>
+        <label for="route-predicate-desc">Predicate Description</label>
+        <textarea id="route-predicate-desc" v-model="formData.predicateDescription" placeholder="A human-readable description of what the predicates do."></textarea>
+    </div>
     <div>
         <label for="route-predicates">Predicates (JSON)</label>
         <textarea id="route-predicates" v-model="formData.predicatesJson"></textarea>
     </div>
 
+    <div>
+        <label for="route-filter-desc">Filter Description</label>
+        <textarea id="route-filter-desc" v-model="formData.filterDescription" placeholder="A human-readable description of what the filters do."></textarea>
+    </div>
     <div>
         <label>Filters</label>
         <div v-for="(filter, index) in formData.filters" :key="index" class="filter-item">
@@ -31,7 +41,7 @@
             <textarea v-model="filter.argsJson" placeholder="Arguments as JSON"></textarea>
             <button class="danger" @click="$emit('remove-filter', index)">Remove</button>
         </div>
-        <button @click="$emit('add-filter')">+ Add Filter</button>
+        <button @click="addFilter">+ Add Filter</button>
     </div>
 
     <div class="form-actions">

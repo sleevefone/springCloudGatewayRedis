@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gateway Admin Dashboard</title>
-    <link rel="stylesheet" href="vendor/element-plus.css"/>
+    <title>!! CACHE TEST !! Gateway Admin</title> <!-- A visible change to test caching -->
     <style>
         /* --- Basic Setup --- */
         html, body, #app { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
@@ -33,8 +32,11 @@
         button.primary { background-color: #409eff; color: #fff; border-color: #409eff; }
         button.danger { background-color: #f56c6c; color: #fff; border-color: #f56c6c; }
         button:hover { opacity: 0.8; }
-        .el-table { color: #303133; }
-        .el-table th { background-color: #fafafa !important; }
+        .native-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .native-table th, .native-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
+        .native-table thead { background-color: #fafafa; }
+        .native-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .loading-text { text-align: center; padding: 40px; font-size: 16px; color: #888; }
 
         /* --- Form --- */
         .form-area { display: flex; flex-direction: column; gap: 15px; }
@@ -68,27 +70,33 @@
                 <!-- Dynamic Component Rendering -->
                 <component 
                     :is="currentComponent" 
-                    :routes="routes" 
+                    
+                    :loading="activeMenu === 'routes' ? routeLoading : clientLoading"
+                    
+                    :routes="routes"
+                    :search-query="routeSearchQuery"
+                    
                     :clients="clients"
-                    :loading="loading"
+
                     :form-data="form"
                     :title="formTitle"
                     :is-edit-mode="isEditMode"
-                    :search-query="searchQuery"
-                    @update:search-query="searchQuery.value = $event"
+                    
+                    @update:search-query="routeSearchQuery.value = $event"
                     @create-route="showCreateForm"
                     @edit-route="showEditForm"
-                    @delete-route="handleDelete"
-                    @save-route="handleSubmit"
+                    @delete-route="handleRouteDelete"
+                    @save-route="handleRouteSubmit"
                     @cancel="showListView"
                     @add-filter="addFilterToForm"
                     @remove-filter="removeFilterFromForm"
-                    @query="handleSearch"
-                    @reset="handleReset"
-                    @toggle-enabled="handleToggleEnabled"
-                    @create-client="createClient"
-                    @delete-client="deleteClient"
-                    @update-client-status="updateClientStatus"
+                    @query="handleRouteSearch"
+                    @reset="handleRouteReset"
+                    @toggle-enabled="handleRouteToggle"
+
+                    @create-client="handleClientCreate"
+                    @delete-client="handleClientDelete"
+                    @update-client-status="handleClientUpdateStatus"
                 ></component>
             </div>
         </div>
@@ -96,7 +104,7 @@
 </div>
 
 <script src="vendor/vue.global.js"></script>
-<script src="vendor/element-plus.full.js"></script>
+<!-- Element Plus is now completely removed -->
 <script src="vendor/axios.min.js"></script>
 <script type="module" src="./app.js"></script>
 

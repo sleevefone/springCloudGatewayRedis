@@ -1,4 +1,5 @@
-export function useApiClients({ ref }) {
+// The composable now accepts dependencies (Vue functions, axios) as arguments.
+export function useApiClients({ ref }, axios) {
     const loading = ref(false);
     const clients = ref([]);
 

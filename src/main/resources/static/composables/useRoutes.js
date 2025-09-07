@@ -1,13 +1,12 @@
-// This composable now handles backend-driven search.
-export function useRoutes({ ref }) {
+// The composable now accepts dependencies (Vue functions, axios) as arguments.
+export function useRoutes({ ref }, axios) {
 
     const loading = ref(true);
-    const routes = ref([]); // Simplified to a single list, the source of truth is the backend.
+    const routes = ref([]);
     const searchQuery = ref('');
 
     const API_BASE_URL = '/admin/routes';
 
-    // The core function now accepts an optional query string.
     const fetchRoutes = async (query = '') => {
         loading.value = true;
         let url = API_BASE_URL;
@@ -30,7 +29,6 @@ export function useRoutes({ ref }) {
         try {
             await axios.delete(`${API_BASE_URL}/${id}`);
             alert('Route deleted successfully.');
-            // After deleting, refresh the current view (it might be a filtered view)
             await fetchRoutes(searchQuery.value);
         } catch (error) {
             alert('Failed to delete route.');
@@ -38,27 +36,25 @@ export function useRoutes({ ref }) {
         }
     };
 
-    // Search now triggers a backend API call.
     const handleSearch = () => {
         fetchRoutes(searchQuery.value);
     };
 
-    // Reset also triggers a backend API call for the full list.
     const handleReset = () => {
         searchQuery.value = '';
         fetchRoutes();
     };
 
-    // Initial Load - get the full list.
+    // Initial Load
     fetchRoutes();
 
     return {
         loading,
-        routes, // The prop will now be just 'routes'
+        routes,
         searchQuery,
         handleDelete,
         handleSearch,
         handleReset,
-        fetchRoutes // Expose for external refresh
+        fetchRoutes
     };
 }

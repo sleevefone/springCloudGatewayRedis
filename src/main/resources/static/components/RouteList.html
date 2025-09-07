@@ -2,32 +2,49 @@
     <div class="header">
         <h1>Gateway Route Manager</h1>
         <div class="search-container">
-            <input type="text" :value="searchQuery" @input="$emit('update:searchQuery', $event.target.value)" @keyup.enter="$emit('query')" placeholder="Search by ID or URI...">
+            <input type="text" :value="searchQuery" @input="$emit('update:searchQuery', $event.target.value)" placeholder="Search by ID or URI...">
             <button @click="$emit('query')">Query</button>
             <button @click="$emit('reset')">Reset</button>
         </div>
         <button class="primary" @click="$emit('create-route')">+ Create Route</button>
     </div>
 
-    <!-- Re-introducing el-table for its powerful features like scoped slots -->
-    <el-table :data="routes" stripe v-loading="loading">
-        <el-table-column prop="id" label="ID" width="250"></el-table-column>
-        <el-table-column prop="uri" label="URI"></el-table-column>
-        <el-table-column prop="order" label="Order" width="80"></el-table-column>
-        <el-table-column label="Enabled" width="100">
-            <!-- Using a scoped slot to embed the switch component -->
-            <template #default="scope">
-                <el-switch 
-                    v-model="scope.row.enabled" 
-                    @change="$emit('toggle-enabled', scope.row)">
-                </el-switch>
-            </template>
-        </el-table-column>
-        <el-table-column label="Actions" width="180">
-            <template #default="scope">
-                <button @click="$emit('edit-route', scope.row)">Edit</button>
-                <button class="danger" @click="$emit('delete-route', scope.row.id)">Delete</button>
-            </template>
-        </el-table-column>
-    </el-table>
+    <div v-if="loading" class="loading-text">Loading...</div>
+    <table v-else class="native-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>URI</th>
+                <th>Descriptions</th>
+                <th>Order</th>
+                <th>Enabled</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr v-for="route in routes" :key="route.id">
+                <td>{{ route.id }}</td>
+                <td>{{ route.uri }}</td>
+                <td>
+                    <!-- BEST PRACTICE FIX: Conditionally render descriptions in red only if they have meaningful, non-whitespace content. -->
+                    <div v-if="route.predicateDescription && route.predicateDescription.trim() !== ''" style="color: red; margin-bottom: 5px;">
+                        <strong>Predicates:</strong> {{ route.predicateDescription }}
+                    </div>
+                    <div v-if="route.filterDescription && route.filterDescription.trim() !== ''" style="color: red;">
+                        <strong>Filters:</strong> {{ route.filterDescription }}
+                    </div>
+                </td>
+                <td>{{ route.order }}</td>
+                <td>
+<!--                    <button @click="$emit('toggle-enabled', route)">-->
+                        {{ route.enabled ? 'Disable' : 'Enable' }}
+<!--                    </button>-->
+                </td>
+                <td>
+                    <button @click="$emit('edit-route', route)">Edit</button>
+                    <button class="danger" @click="$emit('delete-route', route.id)">Delete</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>

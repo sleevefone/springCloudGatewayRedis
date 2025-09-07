@@ -3,6 +3,7 @@ package com.ocft.gateway.openapi.config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ocft.gateway.openapi.admin.GatewayFilterService;
 import com.ocft.gateway.openapi.admin.RouteDefinitionEntity;
 import com.ocft.gateway.openapi.admin.RouteDefinitionJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @Slf4j
@@ -34,6 +36,7 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
     private final ObjectMapper objectMapper;
     private final ReactiveStringRedisTemplate redisTemplate;
     private final ApplicationEventPublisher eventPublisher;
+    private final GatewayFilterService gatewayFilterService;
 
     @Value("${gateway.routes.db.enabled:true}")
     private boolean dbRoutesEnabled;
@@ -44,13 +47,22 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
             log.info("Loading routes from database is disabled by configuration 'gateway.routes.db.enabled'.");
             return Flux.empty();
         }
-
+        List<String> predicates = gatewayFilterService.getAvailableFilters();
         log.debug("Loading active routes from database.");
         // JPA 是阻塞 IO，必须在专用的弹性线程池上执行，以避免阻塞 Netty 的事件循环线程
         // 只加载启用的路由 (enabled = true)，在数据库层面进行过滤以提高效率
         return Mono.fromCallable(() -> jpaRepository.findByEnabled(true))
                 .flatMapMany(Flux::fromIterable)
                 .map(this::convertToRouteDefinition)
+                .filter(o->{
+                    List<PredicateDefinition> predicates1 = o.getPredicates();
+                    Optional<Boolean> any = predicates1.stream()
+                            .map(predicateDefinition -> predicates.contains(predicateDefinition.getName()))
+                            .filter(tr -> !tr)
+                            .findAny();
+
+                    return any.orElse(false);
+                })
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -74,6 +86,23 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
                     try {
                         entity.setPredicates(objectMapper.writeValueAsString(rd.getPredicates()));
                         entity.setFilters(objectMapper.writeValueAsString(rd.getFilters()));
+                        List<String> filters = gatewayFilterService.getAvailableFilters();
+                        Optional<Boolean> filterResult =  rd.getFilters().stream()
+                                .map(predicateDefinition -> filters.contains(predicateDefinition.getName()))
+                                .filter(tr -> !tr)
+                                .findAny();
+                        if (filterResult.orElse(false)){
+                            entity.setFilterDescription("filter(s) not found");
+                        }
+
+                        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+                        Optional<Boolean> preResult =  rd.getPredicates().stream()
+                                .map(predicateDefinition -> predicates.contains(predicateDefinition.getName()))
+                                .filter(tr -> !tr)
+                                .findAny();
+                        if (preResult.orElse(false)){
+                            entity.setFilterDescription("predicate(s) not found");
+                        }
 //                        log.info("save: {}",objectMapper.writeValueAsString(rd));
                     } catch (JsonProcessingException e) {
                         log.error("Failed to serialize predicates or filters for route {}", rd.getId(), e);

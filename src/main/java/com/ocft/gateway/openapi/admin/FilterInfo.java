@@ -15,5 +15,4 @@ public class FilterInfo {
 
     private Map<String, String> args = new LinkedHashMap<>();
 
-    private boolean enabled = true;
 }
