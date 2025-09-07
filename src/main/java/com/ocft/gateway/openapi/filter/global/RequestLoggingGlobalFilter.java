@@ -6,6 +6,7 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -14,16 +15,20 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * 一个全局过滤器，用于记录所有进入网关的请求。
- * 它会记录请求方法、路径、查询参数，以及POST/PUT等请求的请求体。
- * 它实现了 GlobalFilter 接口，因此会自动应用于所有路由。
+ * 记录请求方法、路径、查询参数、请求头、真实 IP 以及 POST/PUT/PATCH 请求的请求体。
  */
 @Slf4j
 @Component
 public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
+
+    private static final String X_FORWARDED_FOR = "X-Forwarded-For";
+    private static final String X_REAL_IP = "X-Real-IP";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -31,11 +36,31 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
         HttpMethod method = request.getMethod();
         boolean hasBody = method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH;
         MultiValueMap<String, String> queryParams = request.getQueryParams();
-        // 1. 为所有请求记录基本信息，包括路径和查询参数
-        if (!hasBody || !CollectionUtils.isEmpty(queryParams)) {
-            log.info("=> {} {} REQ::PARAM: {}", method, request.getURI().getPath(), request.getQueryParams());
+        HttpHeaders headers = request.getHeaders();
+        String realIp = getRealIp(request);
+
+        // 1. 记录基本信息：方法、路径、查询参数、真实 IP
+        StringBuilder logMessage = new StringBuilder()
+                .append("=> ")
+                .append(method)
+                .append(" ")
+                .append(request.getURI().getPath())
+                .append(" REQ::IP: ")
+                .append(realIp)
+                .append(" REQ::PARAM: ")
+                .append(queryParams.isEmpty() ? "{}" : queryParams);
+
+        // 2. 记录请求头（使用 DEBUG 级别避免生产环境日志过多）
+        if (!headers.isEmpty()) {
+            log.info("REQ::HEADERS: {}", headers);
         }
-        // 2. 如果请求包含请求体，则额外记录请求体
+
+        // 3. 记录基本信息（如果没有请求体或有查询参数）
+        if (!hasBody || !CollectionUtils.isEmpty(queryParams)) {
+            log.info(logMessage.toString());
+        }
+
+        // 4. 如果请求包含请求体，则额外记录请求体
         if (hasBody) {
             return ServerWebExchangeUtils.cacheRequestBody(exchange, (serverHttpRequest) -> {
                 Mono<String> cachedBody = serverHttpRequest.getBody()
@@ -51,23 +76,53 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
 
                 return cachedBody.flatMap(body -> {
                     if (!body.isEmpty()) {
-                        // 使用 DEBUG 级别记录请求体，避免在生产环境中产生过多日志
+                        // 使用 DEBUG 级别记录请求体
                         log.info("REQ::BODY: {}", body.replaceAll("[\r\n\t]", ""));
                     }
-                    // 将包含了缓存请求体的 request 重新构建到 exchange 中，并继续过滤器链
+                    // 如果有请求体，追加到日志
+                    if (!CollectionUtils.isEmpty(queryParams)) {
+                        log.info(logMessage.toString());
+                    }
+                    // 继续过滤器链
                     return chain.filter(exchange.mutate().request(serverHttpRequest).build());
                 });
             });
         }
 
-        // 3. 对于没有请求体的请求 (GET, DELETE 等)，直接继续过滤器链
+        // 5. 对于没有请求体的请求 (GET, DELETE 等)，直接继续过滤器链
         return chain.filter(exchange);
+    }
+
+    /**
+     * 获取客户端真实 IP。
+     * 优先检查 X-Forwarded-For 头，再检查 X-Real-IP，最后使用 remoteAddress。
+     */
+    private String getRealIp(ServerHttpRequest request) {
+        HttpHeaders headers = request.getHeaders();
+
+        // 1. 检查 X-Forwarded-For
+        List<String> forwardedFor = headers.get(X_FORWARDED_FOR);
+        if (forwardedFor != null && !forwardedFor.isEmpty()) {
+            // 取第一个 IP（客户端真实 IP）
+            String ip = forwardedFor.get(0).split(",")[0].trim();
+            if (!ip.isEmpty()) {
+                return ip;
+            }
+        }
+
+        // 2. 检查 X-Real-IP
+        String realIp = headers.getFirst(X_REAL_IP);
+        if (realIp != null && !realIp.isEmpty()) {
+            return realIp;
+        }
+
+        // 3. 兜底：使用 remoteAddress
+        InetSocketAddress remoteAddress = request.getRemoteAddress();
+        return remoteAddress != null ? remoteAddress.getAddress().getHostAddress() : "unknown";
     }
 
     @Override
     public int getOrder() {
-        // 设置一个较高的优先级（数值小），以确保它在其他业务过滤器之前执行
-        // 例如，-1 会让它在大多数默认过滤器之后，但在路由过滤器之前运行
-        return -1;
+        return -1; // 高优先级，确保在业务过滤器之前执行
     }
 }
