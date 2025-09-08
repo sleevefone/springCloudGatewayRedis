@@ -12,6 +12,7 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.http.server.reactive.ServerHttpResponseDecorator;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -46,7 +47,8 @@ public class FinalRequestLoggerGlobalFilter implements GlobalFilter, Ordered {
                     // 这个属性是由路由过滤器设置的
                     URI routedUri = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
                     URI originalUri = exchange.getRequest().getURI();
-                    HttpStatusCode statusCode = exchange.getResponse().getStatusCode();
+                    ServerHttpResponse response = exchange.getResponse();
+                    HttpStatusCode statusCode = response.getStatusCode();
                     String responseBody = responseBodyCapture.toString();
 
                     // 记录摘要日志 (INFO级别)
@@ -57,11 +59,15 @@ public class FinalRequestLoggerGlobalFilter implements GlobalFilter, Ordered {
                             (statusCode != null) ? statusCode.value() : "N/A",
                             duration
                     );
+                    log.info("RESP::HEADERS: {}, realIp: {},STATUS: {}", response.getHeaders(),
+                            FilterUtil.getRealIp(exchange.getRequest()), response.getStatusCode());
 
                     // 使用 DEBUG 级别记录详细的响应体，避免在生产环境中因日志过多影响性能
-                    if (!responseBody.isEmpty()) {
-                        log.info("RESP:BODY: {}", responseBody.replaceAll("[\r\n\t]", ""));
+                    String respBody = responseBody.replaceAll("[\r\n\t]", "");
+                    if (!StringUtils.hasLength(respBody)){
+                        respBody = "NULL";
                     }
+                    log.info("RESP:BODY: {}", respBody);
                 });
     }
 

@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.http.server.reactive.ServerHttpResponseDecorator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -18,15 +19,6 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * A global filter for handling exceptions and adding error headers to error responses.
- * <p>
- * Functionality: For error responses (4xx/5xx) from downstream, adds an error code header if not present.
- * For gateway-level exceptions, sets status, adds error code header, and returns a JSON response with message.
- * The error code is based on the route ID (system identifier) and status code.
- * <p>
- * Header: X-Error-Code (e.g., "systemA-500")
- */
 @Component
 @Slf4j
 public class ErrorHandlingGlobalFilter implements GlobalFilter, Ordered {
@@ -41,30 +33,39 @@ public class ErrorHandlingGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        Mono<Object> objectMono = chain.filter(exchange).then(Mono.fromRunnable(() -> {
-            ServerHttpResponse response = exchange.getResponse();
-            HttpStatusCode status = response.getStatusCode();
-            if (status != null && status.isError()) {
-                if (!response.getHeaders().containsKey(ERROR_HEADER_NAME)) {
-                    String routeId = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
-                    String system = (routeId != null) ? routeId : "DEFAULT";
-                    String errorCode = system + "-" + status.value();
-                    response.getHeaders().add(ERROR_HEADER_NAME, errorCode);
+        // 装饰响应以拦截 headers
+        ServerHttpResponse decoratedResponse = new ServerHttpResponseDecorator(exchange.getResponse()) {
+            @Override
+            public boolean setStatusCode(HttpStatusCode status) {
+                boolean result = super.setStatusCode(status);
+                if (status != null && status.isError()) {
+                    addErrorHeader(exchange, status);
                 }
+                return result;
             }
-        })).onErrorResume(Exception.class, e -> {
+
+            @Override
+            public Mono<Void> writeWith(org.reactivestreams.Publisher<? extends DataBuffer> body) {
+                HttpStatusCode status = getStatusCode();
+                if (status != null && status.isError() && !getHeaders().containsKey(ERROR_HEADER_NAME)) {
+                    addErrorHeader(exchange, status);
+                }
+                return super.writeWith(body);
+            }
+        };
+
+        // 替换原始响应
+        ServerWebExchange mutatedExchange = exchange.mutate().response(decoratedResponse).build();
+
+        return chain.filter(mutatedExchange).onErrorResume(Exception.class, e -> {
             log.error("Error occurred in request: {}", exchange.getRequest().getURI(), e);
 
-            ServerHttpResponse response = exchange.getResponse();
+            ServerHttpResponse response = mutatedExchange.getResponse();
             response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
 
-            Object routeId = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
-            String system = (routeId != null) ? routeId.toString() : "DEFAULT";
-            String errorCode = system + "-500";
-
-            if (!response.getHeaders().containsKey(ERROR_HEADER_NAME)) {
-                response.getHeaders().add(ERROR_HEADER_NAME, errorCode);
-            }
+            // 添加错误 header
+            String errorCode = getErrorCode(exchange, HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getHeaders().addIfAbsent(ERROR_HEADER_NAME, errorCode);
 
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
@@ -80,14 +81,23 @@ public class ErrorHandlingGlobalFilter implements GlobalFilter, Ordered {
             }
 
             DataBuffer buffer = response.bufferFactory().wrap(bytes);
-//            return response.writeWith(Mono.just(buffer));
             return response.writeWith(Mono.just(buffer));
         });
-        return objectMono.then(Mono.empty());
+    }
+
+    private void addErrorHeader(ServerWebExchange exchange, HttpStatusCode status) {
+        String errorCode = getErrorCode(exchange, status);
+        exchange.getResponse().getHeaders().addIfAbsent(ERROR_HEADER_NAME, errorCode);
+    }
+
+    private String getErrorCode(ServerWebExchange exchange, HttpStatusCode status) {
+        Object routeId = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
+        String system = (routeId != null) ? routeId.toString() : "DEFAULT";
+        return system + "-" + status.value();
     }
 
     @Override
     public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE-100; // Run as a post-filter for response modification
+        return Ordered.HIGHEST_PRECEDENCE; // 提前执行，确保 headers 可写
     }
 }

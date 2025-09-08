@@ -58,7 +58,7 @@ public class CacheResponseGatewayFilterFactory extends AbstractGatewayFilterFact
     public CacheResponseGatewayFilterFactory() {
         super(Config.class);
         this.cache = Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofSeconds(10)) // 默认缓存10分钟
+                .expireAfterWrite(Duration.ofMinutes(10)) // 默认缓存10分钟
                 .maximumSize(10_000) // 最大缓存条目数
                 .build();
     }

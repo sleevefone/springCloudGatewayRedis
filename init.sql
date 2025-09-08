@@ -2,6 +2,8 @@
 
 USE `gateway_db`;
 
+docker run -d -p 3307:3306  --name mysql12 -e MYSQL_ROOT_PASSWORD=123456 mysql:9.4-oraclelinux9
+
 
 DROP TABLE IF EXISTS `api_clients`;
 CREATE TABLE `api_clients` (

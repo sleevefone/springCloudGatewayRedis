@@ -29,7 +29,7 @@ import java.util.List;
 public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
 
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
-    private static final String X_REAL_IP = "X-Real-IP";
+    public static final String X_REAL_IP = "X-Real-IP";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -37,7 +37,6 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
         HttpMethod method = request.getMethod();
         boolean hasBody = method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH;
         MultiValueMap<String, String> queryParams = request.getQueryParams();
-        HttpHeaders headers = request.getHeaders();
         String realIp = getRealIp(request);
 
         // 1. 记录基本信息：方法、路径、查询参数、真实 IP
@@ -52,11 +51,7 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
                 .append(queryParams.isEmpty() ? "{}" : queryParams);
 
         // 2. 记录请求头（使用 DEBUG 级别避免生产环境日志过多）
-        if (!headers.isEmpty()) {
-            log.info("REQ::HEADERS: {}", headers);
-        }
-        ServerHttpResponse originalResponse = exchange.getResponse();
-        log.info("RESP::STATUS: {} | HEADERS: {}", originalResponse.getStatusCode(), originalResponse.getHeaders());
+        log.info("REQ::HEADERS: {}", request.getHeaders());
 
         // 3. 记录基本信息（如果没有请求体或有查询参数）
         if (!hasBody || !CollectionUtils.isEmpty(queryParams)) {
@@ -78,11 +73,8 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
                         .defaultIfEmpty("");
 
                 return cachedBody.flatMap(body -> {
-                    if (!body.isEmpty()) {
-                        // 使用 DEBUG 级别记录请求体
-                        log.info("REQ::BODY: {}", body.replaceAll("[\r\n\t]", ""));
-
-                    }
+                    // 使用 DEBUG 级别记录请求体
+                    log.info("REQ::BODY: {}", body.replaceAll("[\r\n\t]", ""));
                     // 1. 记录响应头
 
                     // 如果有请求体，追加到日志
