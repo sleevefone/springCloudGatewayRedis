@@ -1,6 +1,5 @@
 package com.ocft.gateway.openapi.admin;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
 import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
@@ -12,22 +11,18 @@ import org.springframework.util.StringUtils;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * A service to discover and provide detailed lists of available factories, including their parameters.
+ * A service to discover and provide detailed information about available factories.
  */
 @Service
-@Slf4j
 public class GatewayFilterService implements ApplicationContextAware, InitializingBean {
 
     private ApplicationContext applicationContext;
-    private Map<String, FactoryInfo> cachedFilterFactories;
-    private Map<String, FactoryInfo> cachedPredicateFactories;
+    private List<FactoryInfo> cachedFilterFactories;
+    private List<FactoryInfo> cachedPredicateFactories;
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
@@ -40,50 +35,46 @@ public class GatewayFilterService implements ApplicationContextAware, Initializi
         this.cachedPredicateFactories = scanFactories(RoutePredicateFactory.class, "RoutePredicateFactory");
     }
 
-    private <T> Map<String, FactoryInfo> scanFactories(Class<T> type, String suffixToRemove) {
+    private <T> List<FactoryInfo> scanFactories(Class<T> type, String suffixToRemove) {
         return Arrays.stream(applicationContext.getBeanNamesForType(type))
                 .map(beanName -> {
-                    Object factoryBean = applicationContext.getBean(beanName);
-                    return createFactoryInfo(beanName, factoryBean, suffixToRemove);
+                    Object factory = applicationContext.getBean(beanName);
+                    String name = StringUtils.capitalize(beanName.replace(suffixToRemove, ""));
+                    List<FactoryArg> args = extractArguments(factory.getClass());
+                    return new FactoryInfo(name, factory.getClass().getName(), args);
                 })
-                .collect(Collectors.toMap(FactoryInfo::getName, info -> info, (info1, info2) -> info1));
+                .sorted(Comparator.comparing(FactoryInfo::name))
+                .collect(Collectors.toList());
     }
 
-    private FactoryInfo createFactoryInfo(String beanName, Object factoryBean, String suffixToRemove) {
-        FactoryInfo info = new FactoryInfo();
-        String name = StringUtils.capitalize(beanName.replace(suffixToRemove, ""));
-        info.setName(name);
-        info.setClassName(factoryBean.getClass().getName());
-
-        try {
-            // Most factories define their parameters in a nested static class called 'Config'.
-            Class<?> configClass = Class.forName(factoryBean.getClass().getName() + "$Config");
-            List<FactoryInfo.ParameterInfo> params = Arrays.stream(configClass.getDeclaredFields())
-                    .map(field -> new FactoryInfo.ParameterInfo(field.getName(), getFieldType(field)))
-                    .collect(Collectors.toList());
-            info.setParameters(params);
-        } catch (ClassNotFoundException e) {
-            // This factory does not have a 'Config' class, likely takes no parameters.
-            log.debug("No 'Config' class found for factory bean: {}. Assuming no parameters.", beanName);
-            info.setParameters(Collections.emptyList());
+    private List<FactoryArg> extractArguments(Class<?> factoryClass) {
+        List<FactoryArg> args = new ArrayList<>();
+        // Find the config class from the generic type of AbstractGatewayFilterFactory or AbstractRoutePredicateFactory
+        Type genericSuperclass = factoryClass.getGenericSuperclass();
+        if (genericSuperclass instanceof ParameterizedType) {
+            Type[] actualTypeArguments = ((ParameterizedType) genericSuperclass).getActualTypeArguments();
+            if (actualTypeArguments.length > 0 && actualTypeArguments[0] instanceof Class) {
+                Class<?> configClass = (Class<?>) actualTypeArguments[0];
+                // Exclude Object.class which means no specific config
+                if (configClass != Object.class) {
+                    for (Field field : configClass.getDeclaredFields()) {
+                        args.add(new FactoryArg(field.getName(), field.getType().getSimpleName()));
+                    }
+                }
+            }
         }
-        return info;
+        return args;
     }
 
-    private String getFieldType(Field field) {
-        Type genericType = field.getGenericType();
-        if (genericType instanceof ParameterizedType) {
-            // For generic types like List<String>, show the full type.
-            return genericType.getTypeName();
-        }
-        return field.getType().getSimpleName();
+    public List<FactoryInfo> getAvailableFilters() {
+        return Collections.unmodifiableList(this.cachedFilterFactories);
     }
 
-    public Map<String, FactoryInfo> getAvailableFilters() {
-        return Collections.unmodifiableMap(this.cachedFilterFactories);
+    public List<FactoryInfo> getAvailablePredicates() {
+        return Collections.unmodifiableList(this.cachedPredicateFactories);
     }
 
-    public Map<String, FactoryInfo> getAvailablePredicates() {
-        return Collections.unmodifiableMap(this.cachedPredicateFactories);
-    }
+    // DTOs for carrying the factory information
+    public record FactoryInfo(String name, String className, List<FactoryArg> args) {}
+    public record FactoryArg(String name, String type) {}
 }

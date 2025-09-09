@@ -6,19 +6,19 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * A DTO to hold the discovered factory information.
  * Using a record for a concise, immutable data carrier.
  */
-record FactoriesInfoPayload(Map<String, String> predicates, Map<String, String> filters) {}
+record FactoriesInfoPayload(List<GatewayFilterService.FactoryInfo> predicates, List<GatewayFilterService.FactoryInfo> filters) {}
 
 /**
- * Admin API to expose lists of available GatewayFilter and RoutePredicate factories.
+ * Admin API to expose lists of available GatewayFilter and RoutePredicate factories with their arguments.
  */
 @RestController
-@RequestMapping("/__gateway/admin/factories") // Using a more general and internal-specific path
+@RequestMapping("/__gateway/admin/factories")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "gateway.admin", name = "enabled", havingValue = "true")
 public class GatewayFilterAdminController {
@@ -26,8 +26,8 @@ public class GatewayFilterAdminController {
     private final GatewayFilterService gatewayFilterService;
 
     /**
-     * Returns a payload containing maps of all discovered factory names to their class names.
-     * @return A DTO containing both predicate and filter factories.
+     * Returns a payload containing detailed information about all discovered factories, including their arguments.
+     * @return A DTO containing both predicate and filter factory details.
      */
     @GetMapping
     public FactoriesInfoPayload getAvailableFactories() {
