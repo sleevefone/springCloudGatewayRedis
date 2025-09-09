@@ -33,7 +33,7 @@
         button.danger { background-color: #f56c6c; color: #fff; border-color: #f56c6c; }
         button:hover { opacity: 0.8; }
         .native-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .native-table th, .native-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
+        .native-table th, .native-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; vertical-align: top; }
         .native-table thead { background-color: #fafafa; }
         .native-table tr:nth-child(even) { background-color: #f9f9f9; }
         .loading-text { text-align: center; padding: 40px; font-size: 16px; color: #888; }
@@ -48,6 +48,15 @@
         .form-actions { display: flex; gap: 10px; margin-top: 10px; }
         .filter-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border: 1px solid #eee; padding: 10px; border-radius: 4px; }
         .filter-item input[type="text"], .filter-item textarea { flex-grow: 1; }
+
+        /* --- Source Code Modal --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background-color: #fff; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,.5); width: 80%; max-width: 1200px; height: 80%; display: flex; flex-direction: column; }
+        .modal-header { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 18px; word-break: break-all; }
+        .modal-header .close-button { font-size: 24px; font-weight: bold; cursor: pointer; background: none; border: none; }
+        .modal-body { padding: 15px; overflow: auto; flex-grow: 1; background-color: #2d2d2d; color: #f8f8f2; }
+        .modal-body pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
 
     </style>
 </head>
@@ -67,48 +76,53 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="content-wrapper">
-                <!-- Dynamic Component Rendering -->
                 <component 
                     :is="currentComponent" 
-                    
                     :loading="activeMenu === 'routes' ? routeLoading : (activeMenu === 'apiClients' ? clientLoading : factoryLoading)"
-                    
                     :routes="routes"
                     :search-query="routeSearchQuery"
-                    
                     :clients="clients"
                     :search-query-clients="clientSearchQuery"
-
                     :predicates="predicates"
                     :filters="filters"
-
                     :form-data="form"
                     :title="formTitle"
                     :is-edit-mode="isEditMode"
-                    
                     @update:search-query="activeMenu === 'routes' ? (routeSearchQuery.value = $event) : (clientSearchQuery.value = $event)"
                     @query="activeMenu === 'routes' ? handleRouteSearch() : handleClientSearch()"
                     @reset="activeMenu === 'routes' ? handleRouteReset() : handleClientReset()"
-
                     @create-route="showCreateForm"
                     @edit-route="showEditForm"
                     @delete-route="handleRouteDelete"
                     @save-route="handleRouteSubmit"
                     @cancel="showListView"
                     @toggle-enabled="handleRouteToggle"
-
                     @add-predicate="addPredicateToForm"
                     @remove-predicate="removePredicateFromForm"
                     @add-filter="addFilterToForm"
                     @remove-filter="removeFilterFromForm"
-
                     @create-client="handleClientCreate"
                     @delete-client="handleClientDelete"
                     @update-client-status="handleClientUpdateStatus"
+                    @show-source="handleShowSource"
                 ></component>
             </div>
         </div>
     </div>
+
+    <!-- Source Code Modal -->
+    <div v-if="sourceCodeModalVisible" class="modal-overlay" @click.self="closeSourceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>{{ sourceCodeTitle }}</h3>
+                <button class="close-button" @click="closeSourceModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre><code>{{ sourceCodeContent }}</code></pre>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script src="vendor/vue.global.js"></script>

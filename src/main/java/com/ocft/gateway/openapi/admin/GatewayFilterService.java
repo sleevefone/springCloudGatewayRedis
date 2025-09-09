@@ -1,18 +1,24 @@
 package com.ocft.gateway.openapi.admin;
 
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
+import org.springframework.cloud.gateway.handler.predicate.AbstractRoutePredicateFactory;
 import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.net.URL;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -41,106 +47,61 @@ public class GatewayFilterService implements ApplicationContextAware, Initializi
         return Arrays.stream(applicationContext.getBeanNamesForType(type))
                 .map(beanName -> {
                     Object factory = applicationContext.getBean(beanName);
-                    Class<?> factoryClass = factory.getClass();
+                    Class<?> factoryClass = ClassUtils.getUserClass(factory);
                     String name = StringUtils.capitalize(beanName.replace(suffixToRemove, ""));
                     List<FactoryArg> args = extractArguments(factoryClass);
-                    String sourceFile = findSourceFile(factoryClass);
-                    return new FactoryInfo(name, factoryClass.getName(), args, sourceFile);
+                    return new FactoryInfo(name, factoryClass.getName(), args);
                 })
                 .sorted(Comparator.comparing(FactoryInfo::name))
                 .collect(Collectors.toList());
     }
+
     private List<FactoryArg> extractArguments(Class<?> factoryClass) {
         List<FactoryArg> args = new ArrayList<>();
-        Type genericSuperclass = factoryClass.getGenericSuperclass();
-        while (genericSuperclass != null) {
+        Class<?> currentClass = factoryClass;
+        while (currentClass != null && currentClass != Object.class) {
+            Type genericSuperclass = currentClass.getGenericSuperclass();
             if (genericSuperclass instanceof ParameterizedType) {
-                Type[] actualTypeArguments = ((ParameterizedType) genericSuperclass).getActualTypeArguments();
-                if (actualTypeArguments.length > 0) {
-                    Type argType = actualTypeArguments[0];
-                    if (argType instanceof Class<?>) {
-                        Class<?> configClass = (Class<?>) argType;
-                        if (configClass != Object.class) {
-                            extractFieldsFromClass(configClass, args);
-                            break;
-                        }
-                    } else if (argType instanceof ParameterizedType) {
-                        // 处理嵌套泛型，如 List<String>，提取 rawType 的 fields（如果 rawType 是类）
-                        ParameterizedType paramType = (ParameterizedType) argType;
-                        Type rawType = paramType.getRawType();
-                        if (rawType instanceof Class<?>) {
-                            Class<?> configClass = (Class<?>) rawType;
-                            if (configClass != Object.class) {
-                                extractFieldsFromClass(configClass, args);
-                                break;
+                ParameterizedType parameterizedType = (ParameterizedType) genericSuperclass;
+                Type rawType = parameterizedType.getRawType();
+                if (rawType.equals(AbstractGatewayFilterFactory.class) || rawType.equals(AbstractRoutePredicateFactory.class)) {
+                    Type[] typeArguments = parameterizedType.getActualTypeArguments();
+                    if (typeArguments.length > 0) {
+                        Type configType = typeArguments[0];
+                        Class<?> configClass = resolveClassFromType(configType);
+                        if (configClass != null && configClass != Object.class) {
+                            for (Field field : configClass.getDeclaredFields()) {
+                                args.add(new FactoryArg(field.getName(), field.getType().getSimpleName()));
                             }
                         }
-                    } else {
-                        // 其他类型（如 TypeVariable），忽略或记录为未知
-                        // 可以添加日志：log.warn("Unsupported type: " + argType);
                     }
+                    break;
                 }
             }
-            // 修复：正确更新 factoryClass 和 genericSuperclass
-            Class<?> currentClass = (Class<?>) factoryClass.getSuperclass();
-            if (currentClass != null) {
-                genericSuperclass = currentClass.getGenericSuperclass();
-                factoryClass = currentClass;  // 更新 factoryClass 为当前 superclass
-            } else {
-                genericSuperclass = null;
-            }
+            currentClass = currentClass.getSuperclass();
         }
         return args;
     }
 
-    // 辅助方法：从 Config 类提取字段
-    private void extractFieldsFromClass(Class<?> configClass, List<FactoryArg> args) {
-        for (Field field : configClass.getDeclaredFields()) {
-            // 获取字段的简单类型名（处理复杂泛型）
-            Type fieldType = field.getGenericType();
-            String typeName = getTypeSimpleName(fieldType);
-            args.add(new FactoryArg(field.getName(), typeName));
-        }
-    }
-
-    // 辅助方法：获取 Type 的简单名称（处理 ParameterizedType）
-    private String getTypeSimpleName(Type type) {
-        if (type instanceof Class<?>) {
-            return ((Class<?>) type).getSimpleName();
+    private Class<?> resolveClassFromType(Type type) {
+        if (type instanceof Class) {
+            return (Class<?>) type;
         } else if (type instanceof ParameterizedType) {
-            ParameterizedType paramType = (ParameterizedType) type;
-            Type rawType = paramType.getRawType();
-            if (rawType instanceof Class<?>) {
-                return ((Class<?>) rawType).getSimpleName() + "<...>";  // 简化表示泛型，如 List<...>
-            }
-        }
-        //  fallback
-        return type.toString();
-    }
-
-    private String findSourceFile(Class<?> clazz) {
-        try {
-            String className = clazz.getName();
-            String classAsPath = className.replace('.', '/') + ".class";
-            URL url = clazz.getClassLoader().getResource(classAsPath);
-            if (url != null && "file".equals(url.getProtocol())) {
-                String path = url.getPath();
-                // This logic assumes a standard Maven/Gradle project structure
-                String targetPath = "/target/classes/";
-                String buildPath = "/build/classes/java/main/";
-                String sourcePath = "/src/main/java/";
-                String sourceFile = className.replace('.', '/') + ".java";
-
-                if (path.contains(targetPath)) {
-                    return Paths.get(path.substring(0, path.indexOf(targetPath)), sourcePath, sourceFile).toString();
-                } else if (path.contains(buildPath)) {
-                    return Paths.get(path.substring(0, path.indexOf(buildPath)), sourcePath, sourceFile).toString();
-                }
-            }
-        } catch (Exception e) {
-            // Ignore, as this is a best-effort enhancement
+            return resolveClassFromType(((ParameterizedType) type).getRawType());
         }
         return null;
+    }
+
+    public String getSourceCode(String className) throws IOException {
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        String resourcePath = "classpath*:/" + className.replace('.', '/') + ".java";
+        Resource[] resources = resolver.getResources(resourcePath);
+        if (resources.length > 0 && resources[0].exists()) {
+            try (InputStream inputStream = resources[0].getInputStream()) {
+                return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        }
+        return "/* Source code not found in classpath. */";
     }
 
     public List<FactoryInfo> getAvailableFilters() {
@@ -151,7 +112,6 @@ public class GatewayFilterService implements ApplicationContextAware, Initializi
         return Collections.unmodifiableList(this.cachedPredicateFactories);
     }
 
-    // DTOs now include the source file path
-    public record FactoryInfo(String name, String className, List<FactoryArg> args, String sourceFile) {}
+    public record FactoryInfo(String name, String className, List<FactoryArg> args) {}
     public record FactoryArg(String name, String type) {}
 }
