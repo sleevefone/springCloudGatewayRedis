@@ -80,30 +80,6 @@ public class RouteAdminServiceImpl implements RouteAdminService {
         return saveToDbMono.then(redisOperationMono);
     }
 
-    private void checkPredicates(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
-        List<String> predicates = gatewayFilterService.getAvailablePredicates();
-        List<String> filter2 = payload.getPredicates().stream().map(PredicateDefinition::getName).collect(Collectors.toList());
-        filter2.removeAll(predicates);
-        if (!CollectionUtils.isEmpty(filter2)){
-            payload.setEnabled(false);
-            entity.setPredicateDescription("predicate(s) not found");
-        }else {
-            entity.setPredicateDescription(null);
-        }
-    }
-
-    private void checkFilters(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
-        List<String> filters = gatewayFilterService.getAvailableFilters();
-        List<String> filter1 = payload.getFilters().stream().map(FilterInfo::getName).collect(Collectors.toList());
-        filter1.removeAll(filters);
-        if (!CollectionUtils.isEmpty(filter1)){
-            payload.setEnabled(false);
-            entity.setFilterDescription("filter(s) not found");
-        }else {
-            entity.setFilterDescription(null);
-        }
-    }
-
     @Override
     @Transactional
     public Mono<Void> delete(String routeId) {
@@ -184,8 +160,10 @@ public class RouteAdminServiceImpl implements RouteAdminService {
         payload.setUri(entity.getUri());
         payload.setOrder(entity.getRouteOrder());
         payload.setEnabled(entity.isEnabled());
-        payload.setPredicates(objectMapper.readValue(entity.getPredicates(), new TypeReference<List<PredicateDefinition>>() {}));
-        payload.setFilters(objectMapper.readValue(entity.getFilters(), new TypeReference<List<FilterInfo>>() {}));
+        payload.setPredicates(objectMapper.readValue(entity.getPredicates(), new TypeReference<>() {
+        }));
+        payload.setFilters(objectMapper.readValue(entity.getFilters(), new TypeReference<>() {
+        }));
         // Map new description fields
         payload.setPredicateDescription(entity.getPredicateDescription());
         payload.setFilterDescription(entity.getFilterDescription());
@@ -194,4 +172,29 @@ public class RouteAdminServiceImpl implements RouteAdminService {
 
         return payload;
     }
+
+    private void checkPredicates(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
+        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+        List<String> filter2 = payload.getPredicates().stream().map(PredicateDefinition::getName).collect(Collectors.toList());
+        filter2.removeAll(predicates);
+        if (!CollectionUtils.isEmpty(filter2)){
+            payload.setEnabled(false);
+            entity.setPredicateDescription("predicate(s) not found");
+        }else {
+            entity.setPredicateDescription(null);
+        }
+    }
+
+    private void checkFilters(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
+        List<String> filters = gatewayFilterService.getAvailableFilters();
+        List<String> filter1 = payload.getFilters().stream().map(FilterInfo::getName).collect(Collectors.toList());
+        filter1.removeAll(filters);
+        if (!CollectionUtils.isEmpty(filter1)){
+            payload.setEnabled(false);
+            entity.setFilterDescription("filter(s) not found");
+        }else {
+            entity.setFilterDescription(null);
+        }
+    }
+
 }

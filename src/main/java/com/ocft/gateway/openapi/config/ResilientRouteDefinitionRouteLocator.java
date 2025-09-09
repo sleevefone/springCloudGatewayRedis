@@ -2,9 +2,7 @@
 //
 //import lombok.extern.slf4j.Slf4j;
 //import org.springframework.cloud.gateway.config.GatewayProperties;
-//import org.springframework.cloud.gateway.filter.GatewayFilter;
 //import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
-//import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 //import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
 //import org.springframework.cloud.gateway.route.Route;
 //import org.springframework.cloud.gateway.route.RouteDefinition;
@@ -12,7 +10,6 @@
 //import org.springframework.cloud.gateway.route.RouteDefinitionRouteLocator;
 //import org.springframework.context.annotation.Primary;
 //import org.springframework.stereotype.Component;
-//import reactor.core.publisher.Flux;
 //import reactor.core.publisher.Mono;
 //
 //import java.util.List;
@@ -31,8 +28,8 @@
 //
 //    public ResilientRouteDefinitionRouteLocator(
 //            RouteDefinitionLocator routeDefinitionLocator,
-//            List<RoutePredicateFactory> predicateFactories,
-//            List<GatewayFilterFactory> filterFactories,
+//            List<RoutePredicateFactory<?>> predicateFactories,
+//            List<GatewayFilterFactory<?>> filterFactories,
 //            GatewayProperties gatewayProperties) {
 //        super(routeDefinitionLocator, predicateFactories, filterFactories, gatewayProperties);
 //    }
@@ -43,7 +40,7 @@
 //     * @return A Mono containing the converted Route, or an empty Mono if conversion fails.
 //     */
 //    @Override
-//    protected Mono<Route> convertToRoute(RouteDefinition routeDefinition) {
+//    public Mono<Route> convertToRoute(RouteDefinition routeDefinition) {
 //        try {
 //            // Attempt to convert the route definition as normal.
 //            return super.convertToRoute(routeDefinition);
