@@ -10,14 +10,21 @@
             <thead>
                 <tr>
                     <th>Name (Short Key)</th>
-                    <th>Full Class Name</th>
+                    <th>Full Class Name (Click to Open in IDE)</th>
                     <th>Arguments</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-for="factory in predicates" :key="factory.name">
                     <td><strong>{{ factory.name }}</strong></td>
-                    <td>{{ factory.className }}</td>
+                    <td>
+                        <!-- If sourceFile is found, make it a clickable link for the IDE -->
+                        <a v-if="factory.sourceFile" :href="`http://localhost:63342/api/open?file=${factory.sourceFile}`" target="_blank" :title="`Click to open ${factory.sourceFile}`">
+                            {{ factory.className }}
+                        </a>
+                        <!-- Otherwise, just display the class name -->
+                        <span v-else>{{ factory.className }}</span>
+                    </td>
                     <td>
                         <ul v-if="factory.args && factory.args.length > 0" style="margin: 0; padding-left: 20px;">
                             <li v-for="arg in factory.args" :key="arg.name">
@@ -35,14 +42,19 @@
             <thead>
                 <tr>
                     <th>Name (Short Key)</th>
-                    <th>Full Class Name</th>
+                    <th>Full Class Name (Click to Open in IDE)</th>
                     <th>Arguments</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-for="factory in filters" :key="factory.name">
                     <td><strong>{{ factory.name }}</strong></td>
-                    <td>{{ factory.className }}</td>
+                    <td>
+                        <a v-if="factory.sourceFile" :href="`http://localhost:63342/api/open?file=${factory.sourceFile}`" target="_blank" :title="`Click to open ${factory.sourceFile}`">
+                            {{ factory.className }}
+                        </a>
+                        <span v-else>{{ factory.className }}</span>
+                    </td>
                     <td>
                         <ul v-if="factory.args && factory.args.length > 0" style="margin: 0; padding-left: 20px;">
                             <li v-for="arg in factory.args" :key="arg.name">

@@ -1,7 +1,7 @@
 export function useFactories({ ref }, axios) {
     const loading = ref(false);
-    const predicates = ref([]); // Will be an array of objects
-    const filters = ref([]);    // Will be an array of objects
+    const predicates = ref([]); // Will be an array of FactoryInfo objects
+    const filters = ref([]);    // Will be an array of FactoryInfo objects
 
     const API_BASE_URL = '/__gateway/admin/factories';
 
