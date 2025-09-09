@@ -1,0 +1,40 @@
+<div>
+    <div class="header">
+        <h1>Available Factories</h1>
+    </div>
+
+    <div v-if="loading" class="loading-text">Loading...</div>
+    <div v-else>
+        <h2>Predicate Factories ({{ Object.keys(predicates).length }})</h2>
+        <table class="native-table">
+            <thead>
+                <tr>
+                    <th>Name (Short Key)</th>
+                    <th>Full Class Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(className, name) in predicates" :key="name">
+                    <td><strong>{{ name }}</strong></td>
+                    <td>{{ className }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 style="margin-top: 30px;">Filter Factories ({{ Object.keys(filters).length }})</h2>
+        <table class="native-table">
+            <thead>
+                <tr>
+                    <th>Name (Short Key)</th>
+                    <th>Full Class Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(className, name) in filters" :key="name">
+                    <td><strong>{{ name }}</strong></td>
+                    <td>{{ className }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

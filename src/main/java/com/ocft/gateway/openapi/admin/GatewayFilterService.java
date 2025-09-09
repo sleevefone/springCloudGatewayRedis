@@ -1,86 +1,75 @@
 package com.ocft.gateway.openapi.admin;
 
-import lombok.Setter;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
 import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Arrays;
 
 /**
- * A service to discover and provide a list of available GatewayFilterFactory beans.
+ * A service to discover and provide lists of available GatewayFilterFactory and RoutePredicateFactory beans.
  */
 @Service
 public class GatewayFilterService implements ApplicationContextAware, InitializingBean {
-    @Setter
+
     private ApplicationContext applicationContext;
-    private List<String> cachedFilterNames;
-    private List<String> cachedPredicateNames;
+    private Map<String, String> cachedFilterNames;
+    private Map<String, String> cachedPredicateNames;
 
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) {
+        this.applicationContext = applicationContext;
+    }
 
-    /**
-     * This method is called once the application context has been initialized.
-     * It scans for all GatewayFilterFactory beans and caches their names.
-     */
     @Override
     public void afterPropertiesSet() {
-        // Get all beans of type GatewayFilterFactory using the correct class
-        handleFilter();
-        handlePredicate();
-    }
+        // Scan for GatewayFilterFactory beans
+        this.cachedFilterNames = Arrays.stream(applicationContext.getBeanNamesForType(GatewayFilterFactory.class))
+                .collect(Collectors.toMap(
+                        this::formatBeanNameForFilter,
+                        name -> applicationContext.getBean(name).getClass().getName(),
+                        (name1, name2) -> name1 // In case of duplicates, keep the first one
+                ));
 
-    private void handleFilter() {
-        String[] beanNames = applicationContext.getBeanNamesForType(GatewayFilterFactory.class);
-
-        this.cachedFilterNames = Arrays.stream(beanNames)
-                .map(name -> {
-                    String strippedName = name.replace("GatewayFilterFactory", "");
-                    // Capitalize the first letter to match the convention (e.g., addTimestamp -> AddTimestamp)
-                    if (strippedName.isEmpty()) {
-                        return strippedName;
-                    }
-                    return Character.toUpperCase(strippedName.charAt(0)) + strippedName.substring(1);
-                })
-                .sorted()
-                .collect(Collectors.toList());
-    }
-
-    private void handlePredicate() {
-        String[] beanNames = applicationContext.getBeanNamesForType(RoutePredicateFactory.class);
-
-        this.cachedPredicateNames = Arrays.stream(beanNames)
-                .map(name -> {
-                    String strippedName = name.replace("RoutePredicateFactory", "");
-                    // Capitalize the first letter to match the convention (e.g., addTimestamp -> AddTimestamp)
-                    if (strippedName.isEmpty()) {
-                        return strippedName;
-                    }
-                    return Character.toUpperCase(strippedName.charAt(0)) + strippedName.substring(1);
-                })
-                .sorted()
-                .collect(Collectors.toList());
+        // Scan for RoutePredicateFactory beans
+        this.cachedPredicateNames = Arrays.stream(applicationContext.getBeanNamesForType(RoutePredicateFactory.class))
+                .collect(Collectors.toMap(
+                        this::formatBeanNameForPredicate,
+                        name -> applicationContext.getBean(name).getClass().getName(),
+                        (name1, name2) -> name1
+                ));
     }
 
     /**
-     * Returns the cached list of available gateway filter names.
-     *
-     * @return A list of filter names.
+     * Returns the cached map of available gateway filter names to their class names.
+     * @return An unmodifiable map of filter names.
      */
-    public List<String> getAvailableFilters() {
-        return Collections.unmodifiableList(this.cachedFilterNames);
+    public Map<String, String> getAvailableFilters() {
+        return Collections.unmodifiableMap(this.cachedFilterNames);
     }
+
     /**
-     * Returns the cached list of available gateway filter names.
-     *
-     * @return A list of filter names.
+     * Returns the cached map of available route predicate names to their class names.
+     * @return An unmodifiable map of predicate names.
      */
-    public List<String> getAvailablePredicates() {
-        return Collections.unmodifiableList(this.cachedPredicateNames);
+    public Map<String, String> getAvailablePredicates() {
+        return Collections.unmodifiableMap(this.cachedPredicateNames);
+    }
+
+    private String formatBeanNameForFilter(String beanName) {
+        String strippedName = beanName.replace("GatewayFilterFactory", "");
+        return StringUtils.capitalize(strippedName);
+    }
+
+    private String formatBeanNameForPredicate(String beanName) {
+        String strippedName = beanName.replace("RoutePredicateFactory", "");
+        return StringUtils.capitalize(strippedName);
     }
 }

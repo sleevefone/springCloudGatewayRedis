@@ -12,19 +12,23 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
+import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
+import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionRepository;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -40,6 +44,7 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
     private final ApplicationEventPublisher eventPublisher;
     private final GatewayFilterService gatewayFilterService;
 
+    private final ApplicationContext applicationContext;
     @Value("${gateway.routes.db.enabled:true}")
     private boolean dbRoutesEnabled;
 
@@ -49,8 +54,16 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
             log.info("Loading routes from database is disabled by configuration 'gateway.routes.db.enabled'.");
             return Flux.empty();
         }
-        List<String> filters = gatewayFilterService.getAvailableFilters();
-        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+        List<String> filters = Arrays.stream(applicationContext.getBeanNamesForType(GatewayFilterFactory.class))
+                .map(beanName -> {
+                    String strippedName = beanName.replace("GatewayFilterFactory", "");
+                    return StringUtils.capitalize(strippedName);
+                }).toList();
+        List<String> predicates = Arrays.stream(applicationContext.getBeanNamesForType(RoutePredicateFactory.class))
+                .map(beanName -> {
+                    String strippedName = beanName.replace("RoutePredicateFactory", "");
+                    return StringUtils.capitalize(strippedName);
+                }).toList();
         log.debug("Loading active routes from database.");
         // JPA 是阻塞 IO，必须在专用的弹性线程池上执行，以避免阻塞 Netty 的事件循环线程
         // 只加载启用的路由 (enabled = true)，在数据库层面进行过滤以提高效率
@@ -91,23 +104,23 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
                     try {
                         entity.setPredicates(objectMapper.writeValueAsString(rd.getPredicates()));
                         entity.setFilters(objectMapper.writeValueAsString(rd.getFilters()));
-                        List<String> filters = gatewayFilterService.getAvailableFilters();
-                        Optional<Boolean> filterResult =  rd.getFilters().stream()
-                                .map(predicateDefinition -> filters.contains(predicateDefinition.getName()))
-                                .filter(tr -> !tr)
-                                .findAny();
-                        if (filterResult.orElse(false)){
-                            entity.setFilterDescription("filter(s) not found");
-                        }
+//                        List<String> filters = gatewayFilterService.getAvailableFilters();
+//                        Optional<Boolean> filterResult =  rd.getFilters().stream()
+//                                .map(predicateDefinition -> filters.contains(predicateDefinition.getName()))
+//                                .filter(tr -> !tr)
+//                                .findAny();
+//                        if (filterResult.orElse(false)){
+//                            entity.setFilterDescription("filter(s) not found");
+//                        }
 
-                        List<String> predicates = gatewayFilterService.getAvailablePredicates();
-                        Optional<Boolean> preResult =  rd.getPredicates().stream()
-                                .map(predicateDefinition -> predicates.contains(predicateDefinition.getName()))
-                                .filter(tr -> !tr)
-                                .findAny();
-                        if (preResult.orElse(false)){
-                            entity.setFilterDescription("predicate(s) not found");
-                        }
+//                        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+//                        Optional<Boolean> preResult =  rd.getPredicates().stream()
+//                                .map(predicateDefinition -> predicates.contains(predicateDefinition.getName()))
+//                                .filter(tr -> !tr)
+//                                .findAny();
+//                        if (preResult.orElse(false)){
+//                            entity.setFilterDescription("predicate(s) not found");
+//                        }
 //                        log.info("save: {}",objectMapper.writeValueAsString(rd));
                     } catch (JsonProcessingException e) {
                         log.error("Failed to serialize predicates or filters for route {}", rd.getId(), e);
@@ -149,4 +162,5 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
         }));
         return rd;
     }
+
 }

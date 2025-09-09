@@ -60,24 +60,27 @@
             <ul class="menu-list">
                 <li :class="{ active: activeMenu === 'routes' }" @click="selectMenu('routes')">Route Management</li>
                 <li :class="{ active: activeMenu === 'apiClients' }" @click="selectMenu('apiClients')">API Clients</li>
-                <li class="disabled">Settings</li>
+                <li :class="{ active: activeMenu === 'factories' }" @click="selectMenu('factories')">Available Factories</li>
             </ul>
         </div>
 
         <!-- Main Content -->
         <div class="main-content">
             <div class="content-wrapper">
-                <!-- Dynamic Component Rendering with all events wired up -->
+                <!-- Dynamic Component Rendering -->
                 <component 
                     :is="currentComponent" 
                     
-                    :loading="activeMenu === 'routes' ? routeLoading : clientLoading"
+                    :loading="activeMenu === 'routes' ? routeLoading : (activeMenu === 'apiClients' ? clientLoading : factoryLoading)"
                     
                     :routes="routes"
                     :search-query="routeSearchQuery"
                     
                     :clients="clients"
                     :search-query-clients="clientSearchQuery"
+
+                    :predicates="predicates"
+                    :filters="filters"
 
                     :form-data="form"
                     :title="formTitle"

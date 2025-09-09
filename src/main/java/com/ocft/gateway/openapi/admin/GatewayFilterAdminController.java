@@ -6,27 +6,34 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import java.util.Map;
 
 /**
- * Admin API to expose the list of available Gateway Filters in the system.
+ * A DTO to hold the discovered factory information.
+ * Using a record for a concise, immutable data carrier.
+ */
+record FactoriesInfoPayload(Map<String, String> predicates, Map<String, String> filters) {}
+
+/**
+ * Admin API to expose lists of available GatewayFilter and RoutePredicate factories.
  */
 @RestController
-@RequestMapping("/admin/filters")
+@RequestMapping("/__gateway/admin/factories") // Using a more general and internal-specific path
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "gateway.admin", name = "enabled", havingValue = "true")
-@SuppressWarnings("unused")
 public class GatewayFilterAdminController {
 
     private final GatewayFilterService gatewayFilterService;
 
     /**
-     * Returns a list of all discovered GatewayFilterFactory names.
-     * The names are derived from the bean names, e.g., "AddTimestampGatewayFilterFactory" becomes "AddTimestamp".
-     * @return A list of available filter names.
+     * Returns a payload containing maps of all discovered factory names to their class names.
+     * @return A DTO containing both predicate and filter factories.
      */
     @GetMapping
-    public List<String> getAvailableFilters() {
-        return gatewayFilterService.getAvailableFilters();
+    public FactoriesInfoPayload getAvailableFactories() {
+        return new FactoriesInfoPayload(
+            gatewayFilterService.getAvailablePredicates(),
+            gatewayFilterService.getAvailableFilters()
+        );
     }
 }

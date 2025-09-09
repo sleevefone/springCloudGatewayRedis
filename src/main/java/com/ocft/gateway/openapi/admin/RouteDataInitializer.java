@@ -9,8 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
+import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
+import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
 import org.springframework.cloud.gateway.route.RouteDefinition;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -19,6 +22,7 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +40,7 @@ public class RouteDataInitializer implements CommandLineRunner {
     private static final String ROUTES_KEY = "gateway:routes";
     public static final String REFRESH_ROUTES_CHANNEL = "gateway:routes:refresh";
 
+    private final ApplicationContext applicationContext;
     private final ReactiveStringRedisTemplate redisTemplate;
     private final RouteAdminService routeAdminService;
     private final RouteDefinitionJpaRepository jpaRepository;
@@ -164,26 +169,36 @@ public class RouteDataInitializer implements CommandLineRunner {
         return payload;
     }
 
+
     private void checkPredicates(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
-        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+
+        List<String> predicates = Arrays.stream(applicationContext.getBeanNamesForType(RoutePredicateFactory.class))
+                .map(beanName -> {
+                    String strippedName = beanName.replace("RoutePredicateFactory", "");
+                    return StringUtils.capitalize(strippedName);
+                }).toList();
         List<String> filter2 = payload.getPredicates().stream().map(PredicateDefinition::getName).collect(Collectors.toList());
         filter2.removeAll(predicates);
-        if (!CollectionUtils.isEmpty(filter2)) {
+        if (!CollectionUtils.isEmpty(filter2)){
             payload.setEnabled(false);
             entity.setPredicateDescription("predicate(s) not found");
-        } else {
+        }else {
             entity.setPredicateDescription(null);
         }
     }
 
     private void checkFilters(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
-        List<String> filters = gatewayFilterService.getAvailableFilters();
+        List<String> filters = Arrays.stream(applicationContext.getBeanNamesForType(GatewayFilterFactory.class))
+                .map(beanName -> {
+                    String strippedName = beanName.replace("GatewayFilterFactory", "");
+                    return StringUtils.capitalize(strippedName);
+                }).toList();
         List<String> filter1 = payload.getFilters().stream().map(FilterInfo::getName).collect(Collectors.toList());
         filter1.removeAll(filters);
-        if (!CollectionUtils.isEmpty(filter1)) {
+        if (!CollectionUtils.isEmpty(filter1)){
             payload.setEnabled(false);
             entity.setFilterDescription("filter(s) not found");
-        } else {
+        }else {
             entity.setFilterDescription(null);
         }
     }
