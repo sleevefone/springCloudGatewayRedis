@@ -2,12 +2,14 @@ package com.ocft.gateway.openapi.constant.grok;
 
 import io.micrometer.context.ThreadLocalAccessor;
 import org.slf4j.MDC;
+import org.springframework.lang.NonNull;
 
 public class TraceIdThreadLocalAccessor implements ThreadLocalAccessor<String> {
 
     public static final String TRACE_ID_KEY = "traceId";
 
     @Override
+    @NonNull
     public String key() {
         return TRACE_ID_KEY;
     }
@@ -18,12 +20,8 @@ public class TraceIdThreadLocalAccessor implements ThreadLocalAccessor<String> {
     }
 
     @Override
-    public void setValue(String value) {
-        if (value != null) {
-            MDC.put(TRACE_ID_KEY, value);
-        } else {
-            MDC.remove(TRACE_ID_KEY); // 清除 MDC
-        }
+    public void setValue(@NonNull String value) {
+        MDC.put(TRACE_ID_KEY, value);
     }
 
     @Override
