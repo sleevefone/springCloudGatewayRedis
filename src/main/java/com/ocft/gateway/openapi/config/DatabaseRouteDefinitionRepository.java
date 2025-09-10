@@ -49,8 +49,8 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
             log.info("Loading routes from database is disabled by configuration 'gateway.routes.db.enabled'.");
             return Flux.empty();
         }
-        List<String> filters = gatewayFilterService.getAvailableFilters();
-        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+        List<String> filters = gatewayFilterService.getAvailableFilterNames();
+        List<String> predicates = gatewayFilterService.getAvailablePredicateNames();
         log.debug("Loading active routes from database.");
         // JPA 是阻塞 IO，必须在专用的弹性线程池上执行，以避免阻塞 Netty 的事件循环线程
         // 只加载启用的路由 (enabled = true)，在数据库层面进行过滤以提高效率
@@ -91,7 +91,7 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
                     try {
                         entity.setPredicates(objectMapper.writeValueAsString(rd.getPredicates()));
                         entity.setFilters(objectMapper.writeValueAsString(rd.getFilters()));
-                        List<String> filters = gatewayFilterService.getAvailableFilters();
+                        List<String> filters = gatewayFilterService.getAvailableFilterNames();
                         Optional<Boolean> filterResult =  rd.getFilters().stream()
                                 .map(predicateDefinition -> filters.contains(predicateDefinition.getName()))
                                 .filter(tr -> !tr)
@@ -100,7 +100,7 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
                             entity.setFilterDescription("filter(s) not found");
                         }
 
-                        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+                        List<String> predicates = gatewayFilterService.getAvailablePredicateNames();
                         Optional<Boolean> preResult =  rd.getPredicates().stream()
                                 .map(predicateDefinition -> predicates.contains(predicateDefinition.getName()))
                                 .filter(tr -> !tr)

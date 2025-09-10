@@ -23,20 +23,20 @@ const { useState, useEffect, useCallback, memo } = React;
 // 这一部分封装了所有与后端交互的网络请求。它们是纯粹的函数，不包含任何UI逻辑。
 const apiClient = {
     // 获取所有路由，支持查询
-    getRoutes: (query = '') => axios.get(`/admin/routes?query=${query}`),
+    getRoutes: (query = '') => axios.get(`/__gateway/admin/routes?query=${query}`),
     // 保存或更新一条路由
-    saveRoute: (route) => axios.post('/admin/routes', route),
+    saveRoute: (route) => axios.post('/__gateway/admin/routes', route),
     // 删除一条路由
-    deleteRoute: (id) => axios.delete(`/admin/routes/${id}`),
+    deleteRoute: (id) => axios.delete(`/__gateway/admin/routes/${id}`),
     
     // 获取所有API客户端，支持查询
-    getClients: (query = '') => axios.get(`/admin/api-clients?query=${query}`),
+    getClients: (query = '') => axios.get(`/__gateway/admin/api-clients?query=${query}`),
     // 创建一个新的API客户端
-    createClient: (description) => axios.post('/admin/api-clients', { description }),
+    createClient: (description) => axios.post('/__gateway/admin/api-clients', { description }),
     // 更新一个API客户端的状态
-    updateClient: (client) => axios.put(`/admin/api-clients/${client.id}`, client),
+    updateClient: (client) => axios.put(`/__gateway/admin/api-clients/${client.id}`, client),
     // 删除一个API客户端
-    deleteClient: (id) => axios.delete(`/admin/api-clients/${id}`),
+    deleteClient: (id) => axios.delete(`/__gateway/admin/api-clients/${id}`),
 };
 
 // --- 2. 路由管理页面组件 ---
@@ -232,7 +232,6 @@ function ApiClientManagement() {
 }
 
 // --- 5. 侧边栏组件 ---
-// 使用 React.memo 进行优化，只有当 props 变化时，组件才会重新渲染。
 const Sidebar = memo(({ activeMenu, onMenuClick }) => {
     const menuItems = ['Route Management', 'API Clients'];
     return (

@@ -1,86 +1,100 @@
 package com.ocft.gateway.openapi.admin;
 
-import lombok.Setter;
+import lombok.Getter;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
+import org.springframework.cloud.gateway.handler.predicate.AbstractRoutePredicateFactory;
 import org.springframework.cloud.gateway.handler.predicate.RoutePredicateFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * A service to discover and provide a list of available GatewayFilterFactory beans.
+ * A service to discover and provide detailed information about available factories.
+ * Its single responsibility is to scan and cache factory metadata on startup.
  */
 @Service
 public class GatewayFilterService implements ApplicationContextAware, InitializingBean {
-    @Setter
+
     private ApplicationContext applicationContext;
-    private List<String> cachedFilterNames;
-    private List<String> cachedPredicateNames;
+    @Getter
+    private List<FactoryInfo> cachedFilterFactories;
+    private List<FactoryInfo> cachedPredicateFactories;
 
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) {
+        this.applicationContext = applicationContext;
+    }
 
-    /**
-     * This method is called once the application context has been initialized.
-     * It scans for all GatewayFilterFactory beans and caches their names.
-     */
     @Override
     public void afterPropertiesSet() {
-        // Get all beans of type GatewayFilterFactory using the correct class
-        handleFilter();
-        handlePredicate();
+        this.cachedFilterFactories = scanFactories(GatewayFilterFactory.class, "GatewayFilterFactory");
+        this.cachedPredicateFactories = scanFactories(RoutePredicateFactory.class, "RoutePredicateFactory");
     }
 
-    private void handleFilter() {
-        String[] beanNames = applicationContext.getBeanNamesForType(GatewayFilterFactory.class);
-
-        this.cachedFilterNames = Arrays.stream(beanNames)
-                .map(name -> {
-                    String strippedName = name.replace("GatewayFilterFactory", "");
-                    // Capitalize the first letter to match the convention (e.g., addTimestamp -> AddTimestamp)
-                    if (strippedName.isEmpty()) {
-                        return strippedName;
-                    }
-                    return Character.toUpperCase(strippedName.charAt(0)) + strippedName.substring(1);
+    private <T> List<FactoryInfo> scanFactories(Class<T> type, String suffixToRemove) {
+        return Arrays.stream(applicationContext.getBeanNamesForType(type))
+                .map(beanName -> {
+                    Object factory = applicationContext.getBean(beanName);
+                    Class<?> factoryClass = ClassUtils.getUserClass(factory);
+                    String name = StringUtils.capitalize(beanName.replace(suffixToRemove, ""));
+                    List<FactoryArg> args = extractArguments(factoryClass);
+                    return new FactoryInfo(name, factoryClass.getName(), args);
                 })
-                .sorted()
+                .sorted(Comparator.comparing(FactoryInfo::name))
                 .collect(Collectors.toList());
     }
 
-    private void handlePredicate() {
-        String[] beanNames = applicationContext.getBeanNamesForType(RoutePredicateFactory.class);
-
-        this.cachedPredicateNames = Arrays.stream(beanNames)
-                .map(name -> {
-                    String strippedName = name.replace("RoutePredicateFactory", "");
-                    // Capitalize the first letter to match the convention (e.g., addTimestamp -> AddTimestamp)
-                    if (strippedName.isEmpty()) {
-                        return strippedName;
+    private List<FactoryArg> extractArguments(Class<?> factoryClass) {
+        List<FactoryArg> args = new ArrayList<>();
+        Class<?> currentClass = factoryClass;
+        while (currentClass != null && currentClass != Object.class) {
+            Type genericSuperclass = currentClass.getGenericSuperclass();
+            if (genericSuperclass instanceof ParameterizedType) {
+                ParameterizedType parameterizedType = (ParameterizedType) genericSuperclass;
+                Type rawType = parameterizedType.getRawType();
+                if (rawType.equals(AbstractGatewayFilterFactory.class) || rawType.equals(AbstractRoutePredicateFactory.class)) {
+                    Type[] typeArguments = parameterizedType.getActualTypeArguments();
+                    if (typeArguments.length > 0 && typeArguments[0] instanceof Class) {
+                        Class<?> configClass = (Class<?>) typeArguments[0];
+                        if (configClass != Object.class) {
+                            for (Field field : configClass.getDeclaredFields()) {
+                                args.add(new FactoryArg(field.getName(), field.getType().getSimpleName()));
+                            }
+                        }
                     }
-                    return Character.toUpperCase(strippedName.charAt(0)) + strippedName.substring(1);
-                })
-                .sorted()
-                .collect(Collectors.toList());
+                    break;
+                }
+            }
+            currentClass = currentClass.getSuperclass();
+        }
+        return args;
     }
 
-    /**
-     * Returns the cached list of available gateway filter names.
-     *
-     * @return A list of filter names.
-     */
-    public List<String> getAvailableFilters() {
-        return Collections.unmodifiableList(this.cachedFilterNames);
+    public List<FactoryInfo> getAvailableFilters() {
+        return Collections.unmodifiableList(this.cachedFilterFactories);
     }
-    /**
-     * Returns the cached list of available gateway filter names.
-     *
-     * @return A list of filter names.
-     */
-    public List<String> getAvailablePredicates() {
-        return Collections.unmodifiableList(this.cachedPredicateNames);
+    public List<String> getAvailableFilterNames() {
+        return Collections.unmodifiableList(this.cachedFilterFactories).stream().map(FactoryInfo::name).toList();
     }
+
+    public List<FactoryInfo> getAvailablePredicates() {
+        return Collections.unmodifiableList(this.cachedPredicateFactories);
+    }
+    public List<String> getAvailablePredicateNames() {
+        return Collections.unmodifiableList(this.cachedPredicateFactories).stream().map(FactoryInfo::name).toList();
+    }
+
+    // DTOs no longer contain source file path, as it's not this service's responsibility.
+    public record FactoryInfo(String name, String className, List<FactoryArg> args) {}
+    public record FactoryArg(String name, String type) {}
 }

@@ -81,7 +81,7 @@ public class RouteAdminServiceImpl implements RouteAdminService {
     }
 
     private void checkPredicates(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
-        List<String> predicates = gatewayFilterService.getAvailablePredicates();
+        List<String> predicates = gatewayFilterService.getAvailablePredicateNames();
         List<String> filter2 = payload.getPredicates().stream().map(PredicateDefinition::getName).collect(Collectors.toList());
         filter2.removeAll(predicates);
         if (!CollectionUtils.isEmpty(filter2)){
@@ -93,7 +93,7 @@ public class RouteAdminServiceImpl implements RouteAdminService {
     }
 
     private void checkFilters(RouteDefinitionPayload payload, RouteDefinitionEntity entity) {
-        List<String> filters = gatewayFilterService.getAvailableFilters();
+        List<String> filters = gatewayFilterService.getAvailableFilterNames();
         List<String> filter1 = payload.getFilters().stream().map(FilterInfo::getName).collect(Collectors.toList());
         filter1.removeAll(filters);
         if (!CollectionUtils.isEmpty(filter1)){
