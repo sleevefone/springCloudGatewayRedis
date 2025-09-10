@@ -3,114 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gateway Admin Dashboard</title>
+    <title>Gateway Admin Dashboard (React)</title>
     <style>
-        /* --- Basic Setup --- */
-        html, body, #app { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
+        /* Using a more modern, clean base style */
+        :root {
+            --sidebar-bg: #2c3e50;
+            --main-bg: #f4f6f9;
+            --content-bg: #ffffff;
+            --text-color: #333;
+            --text-light: #ecf0f1;
+            --border-color: #e0e0e0;
+            --primary-color: #3498db;
+            --danger-color: #e74c3c;
+        }
+        html, body, #root { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; background-color: var(--main-bg); color: var(--text-color); }
         .app-container { display: flex; height: 100%; }
-        .sidebar { width: 220px; background-color: #2c3e50; color: #fff; flex-shrink: 0; padding: 15px; box-sizing: border-box; }
-        .main-content { flex-grow: 1; padding: 20px; background-color: #f4f6f9; overflow-y: auto; }
-        .content-wrapper { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-        
-        /* --- Sidebar Menu --- */
+        .sidebar { width: 220px; background-color: var(--sidebar-bg); color: var(--text-light); flex-shrink: 0; padding: 15px; box-sizing: border-box; }
+        .main-content { flex-grow: 1; padding: 20px; overflow-y: auto; }
+        .content-wrapper { background: var(--content-bg); padding: 20px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
         .menu-list { list-style: none; padding: 0; margin: 0; }
         .menu-list li { padding: 12px 15px; border-radius: 4px; margin-bottom: 5px; cursor: pointer; transition: background-color 0.2s; }
-        .menu-list li.active { background-color: #409eff; }
-        .menu-list li:not(.disabled):hover { background-color: #3a506b; }
-        .menu-list li.disabled { opacity: 0.6; cursor: not-allowed; }
-
-        /* --- Header & Form --- */
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; gap: 15px; }
-        .header h1 { margin: 0; font-size: 24px; flex-shrink: 0; }
-        .create-form-container { display: flex; gap: 10px; margin-bottom: 20px; }
-        .create-form-container input { flex-grow: 1; padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; }
-        .search-container { flex-grow: 1; display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
-        .search-container input { width: 250px; padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; }
-
-        /* --- Buttons & Table --- */
-        button { font-size: 14px; padding: 8px 15px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; background-color: #fff; }
-        button.primary { background-color: #409eff; color: #fff; border-color: #409eff; }
-        button.danger { background-color: #f56c6c; color: #fff; border-color: #f56c6c; }
+        .menu-list li.active { background-color: var(--primary-color); }
+        .menu-list li:hover:not(.active) { background-color: #34495e; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        button { font-size: 14px; padding: 8px 15px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; background-color: #fff; transition: opacity 0.2s; }
         button:hover { opacity: 0.8; }
-        .native-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .native-table th, .native-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
-        .native-table thead { background-color: #fafafa; }
-        .native-table tr:nth-child(even) { background-color: #f9f9f9; }
-        .loading-text { text-align: center; padding: 40px; font-size: 16px; color: #888; }
-
-        /* --- Form --- */
+        button.primary { background-color: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+        button.danger { background-color: var(--danger-color); color: #fff; border-color: var(--danger-color); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid var(--border-color); padding: 12px; text-align: left; }
+        thead { background-color: #fafafa; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
         .form-area { display: flex; flex-direction: column; gap: 15px; }
         .form-area label { font-weight: bold; display: block; margin-bottom: 5px; }
-        .form-area input[type="text"], .form-area input[type="number"], .form-area textarea {
-            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit;
-        }
+        .form-area input, .form-area textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
         .form-area textarea { resize: vertical; min-height: 100px; }
         .form-actions { display: flex; gap: 10px; margin-top: 10px; }
-        .filter-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border: 1px solid #eee; padding: 10px; border-radius: 4px; }
-        .filter-item input[type="text"], .filter-item textarea { flex-grow: 1; }
-
     </style>
 </head>
 <body>
+    <div id="root"></div>
 
-<div id="app">
-    <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <ul class="menu-list">
-                <li :class="{ active: activeMenu === 'routes' }" @click="selectMenu('routes')">Route Management</li>
-                <li :class="{ active: activeMenu === 'apiClients' }" @click="selectMenu('apiClients')">API Clients</li>
-                <li class="disabled">Settings</li>
-            </ul>
-        </div>
+    <!-- React Libraries -->
+    <script src="./vender/react.development.js"></script>
+    <script src="./vender/react-dom.development.js"></script>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="content-wrapper">
-                <!-- Dynamic Component Rendering with all events wired up -->
-                <component 
-                    :is="currentComponent" 
-                    
-                    :loading="activeMenu === 'routes' ? routeLoading : clientLoading"
-                    
-                    :routes="routes"
-                    :search-query="routeSearchQuery"
-                    
-                    :clients="clients"
-                    :search-query-clients="clientSearchQuery"
+    <!-- Babel to transpile JSX in the browser -->
+    <script src="./vender/babel.min.js"></script>
 
-                    :form-data="form"
-                    :title="formTitle"
-                    :is-edit-mode="isEditMode"
-                    
-                    @update:search-query="activeMenu === 'routes' ? (routeSearchQuery.value = $event) : (clientSearchQuery.value = $event)"
-                    @query="activeMenu === 'routes' ? handleRouteSearch() : handleClientSearch()"
-                    @reset="activeMenu === 'routes' ? handleRouteReset() : handleClientReset()"
+    <!-- Axios for API calls -->
+    <script src="./vender/axios.min.js"></script>
 
-                    @create-route="showCreateForm"
-                    @edit-route="showEditForm"
-                    @delete-route="handleRouteDelete"
-                    @save-route="handleRouteSubmit"
-                    @cancel="showListView"
-                    @toggle-enabled="handleRouteToggle"
-
-                    @add-predicate="addPredicateToForm"
-                    @remove-predicate="removePredicateFromForm"
-                    @add-filter="addFilterToForm"
-                    @remove-filter="removeFilterFromForm"
-
-                    @create-client="handleClientCreate"
-                    @delete-client="handleClientDelete"
-                    @update-client-status="handleClientUpdateStatus"
-                ></component>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="vendor/vue.global.js"></script>
-<script src="vendor/axios.min.js"></script>
-<script type="module" src="./app.js"></script>
+    <!-- Our React Application -->
+    <script type="text/babel" src="./app.js"></script>
 
 </body>
 </html>
