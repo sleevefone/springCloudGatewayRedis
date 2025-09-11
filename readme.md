@@ -58,7 +58,7 @@ result:
 ```
 
 ## Unitization, Dual-Gateway Architecture Idea
-##### Step 1: Define a "wildcard" route in the L1 Gateway In your route management service (e.g., route-manager), create a route rule for the L1 Gateway like this. Note that its uri is a meaningless placeholder because it will be overridden by our custom Filter.
+##### Step 1: Define a "wildcard" route in the L1 Gateway In your Route db Management service (e.g., route-manager), create a route rule for the L1 Gateway like this. Note that its uri is a meaningless placeholder because it will be overridden by our custom Filter.
 ```text
  {
  "id": "dynamic-unit-routing-rule",

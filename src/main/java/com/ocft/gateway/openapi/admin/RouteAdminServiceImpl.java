@@ -3,6 +3,7 @@ package com.ocft.gateway.openapi.admin;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ocft.gateway.openapi.config.RedisRouteDefinitionRepository;
+import com.ocft.gateway.openapi.config.RouteInspectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -35,9 +36,14 @@ public class RouteAdminServiceImpl implements RouteAdminService {
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final GatewayFilterService gatewayFilterService;
+    private final RouteInspectorService routeInspectorService;
 
     @Override
     public Flux<RouteDefinitionPayload> getAllRoutes(String query) {
+//        Flux<RouteDefinitionPayload> currentRouteDefinitions = routeInspectorService.getCurrentRouteDefinitions()
+//                .map(this::convertToRouteDefinitionPayload)
+//                .subscribeOn(Schedulers.boundedElastic());
+//        return currentRouteDefinitions;
         if (!StringUtils.hasText(query)) {
             return Mono.fromCallable(jpaRepository::findAll)
                     .flatMapMany(Flux::fromIterable)
@@ -190,6 +196,30 @@ public class RouteAdminServiceImpl implements RouteAdminService {
         payload.setPredicateDescription(entity.getPredicateDescription());
         payload.setFilterDescription(entity.getFilterDescription());
         
+        normalizeDefinitions(payload);
+
+        return payload;
+    }
+    @SneakyThrows
+    private RouteDefinitionPayload convertToRouteDefinitionPayload(RouteDefinition entity) {
+        var payload = new RouteDefinitionPayload();
+        payload.setId(entity.getId());
+        payload.setUri(entity.getUri().toString());
+        payload.setOrder(entity.getOrder());
+//        payload.setEnabled(entity.is());
+        payload.setPredicates(entity.getPredicates());
+        List<FilterInfo> list = entity.getFilters().stream().map(o -> {
+            FilterInfo filterInfo = new FilterInfo();
+            filterInfo.setName(o.getName());
+            filterInfo.setArgs(o.getArgs());
+            return filterInfo;
+        }).toList();
+
+        payload.setFilters(list);
+        // Map new description fields
+//        payload.setPredicateDescription(entity.getPredicateDescription());
+//        payload.setFilterDescription(entity.getFilterDescription());
+
         normalizeDefinitions(payload);
 
         return payload;

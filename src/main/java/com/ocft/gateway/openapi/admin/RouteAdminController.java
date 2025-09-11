@@ -1,5 +1,6 @@
 package com.ocft.gateway.openapi.admin;
 
+import com.ocft.gateway.openapi.config.RouteInspectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -24,6 +25,7 @@ import java.util.Optional;
 public class RouteAdminController {
 
     private final RouteAdminService routeAdminService;
+    private final RouteInspectorService routeInspectorService;
 
     @GetMapping
     public Flux<RouteDefinitionPayload> getAllRoutes(@RequestParam(value = "query", required = false) String query) {

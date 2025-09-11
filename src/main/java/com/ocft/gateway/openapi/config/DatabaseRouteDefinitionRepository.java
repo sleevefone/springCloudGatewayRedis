@@ -147,6 +147,7 @@ public class DatabaseRouteDefinitionRepository implements RouteDefinitionReposit
         }));
         rd.setFilters(objectMapper.readValue(entity.getFilters(), new TypeReference<List<FilterDefinition>>() {
         }));
+        log.info("entity =====: {}", entity);
         return rd;
     }
 }

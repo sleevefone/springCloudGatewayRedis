@@ -4,14 +4,14 @@
  * =====================================================================================
  * 这是一个完全使用 React 重写的、单文件的管理后台前端应用。
  * 它不依赖任何构建工具，直接在浏览器中通过 Babel 进行转译。
- * 
+ *
  * 核心架构思想：
  * 1. **组件化**: 尽管所有代码都在一个文件中，但我们通过创建不同的 React 组件，
- *    在逻辑上将“菜单”、“路由管理页面”、“API客户端管理页面”等功能分离开来。
+ * 在逻辑上将“菜单”、“路由管理页面”、“API客户端管理页面”等功能分离开来。
  * 2. **状态提升 (Lifting State Up)**: 将需要在多个组件间共享的状态（如此处的主菜单选项 `activeMenu`），
- *    提升到它们最近的共同父组件（`App` 组件）中进行管理。
+ * 提升到它们最近的共同父组件（`App` 组件）中进行管理。
  * 3. **单向数据流 (One-Way Data Flow)**: 数据通过 `props` 从父组件单向地流向子组件。
- *    子组件通过调用父组件传递下来的函数（如 `onMenuClick`）来通知父组件更新状态。
+ * 子组件通过调用父组件传递下来的函数（如 `onMenuClick`）来通知父组件更新状态。
  * 4. **Hooks**: 使用 `useState`, `useEffect`, `useCallback` 等 React Hooks 来管理组件的内部状态和生命周期。
  * =====================================================================================
  */
@@ -28,7 +28,7 @@ const apiClient = {
     saveRoute: (route) => axios.post('/__gateway/admin/routes', route),
     // 删除一条路由
     deleteRoute: (id) => axios.delete(`/__gateway/admin/routes/${id}`),
-    
+
     // 获取所有API客户端，支持查询
     getClients: (query = '') => axios.get(`/__gateway/admin/api-clients?query=${query}`),
     // 创建一个新的API客户端
@@ -37,6 +37,21 @@ const apiClient = {
     updateClient: (client) => axios.put(`/__gateway/admin/api-clients/${client.id}`, client),
     // 删除一个API客户端
     deleteClient: (id) => axios.delete(`/__gateway/admin/api-clients/${id}`),
+
+    // 新增：获取全局过滤器
+    getGlobalFilters: () => axios.get('/actuator/gateway/globalfilters'),
+    // 获取路由过滤器
+    getRouteFilters: (id) => axios.get(`/actuator/gateway/routefilters/${id}`),
+    // 刷新路由
+    refreshRoutes: () => axios.post('/actuator/gateway/refresh'),
+    // 获取所有路由（Actuator 版本）
+    getActuatorRoutes: () => axios.get('/actuator/gateway/routes'),
+    // 获取特定路由
+    getActuatorRoute: (id) => axios.get(`/actuator/gateway/routes/${id}`),
+    // 添加路由
+    addActuatorRoute: (id, route) => axios.post(`/actuator/gateway/routes/${id}`, route),
+    // 删除路由
+    deleteActuatorRoute: (id) => axios.delete(`/actuator/gateway/routes/${id}`),
 };
 
 // --- 2. 路由管理页面组件 ---
@@ -89,7 +104,7 @@ function RouteManagement() {
     return (
         <div>
             <div className="header">
-                <h1>Route Management</h1>
+                <h1>Route db Management</h1>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search by ID or URI..." />
                     <button onClick={handleSearch}>Query</button>
@@ -231,15 +246,85 @@ function ApiClientManagement() {
     );
 }
 
-// --- 5. 侧边栏组件 ---
+// --- 5. 端点管理页面组件 (基于 GatewayControllerEndpoint) ---
+function EndpointManagement() {
+    const [globalFilters, setGlobalFilters] = useState([]);
+    const [routes, setRoutes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const [globalFiltersRes, routesRes] = await Promise.all([
+                apiClient.getGlobalFilters(),
+                apiClient.getActuatorRoutes()
+            ]);
+            setGlobalFilters(globalFiltersRes.data);
+            setRoutes(routesRes.data);
+        } catch (err) {
+            setError('Failed to load endpoint data.');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const handleRefresh = async () => {
+        await apiClient.refreshRoutes().catch(() => alert('Failed to refresh routes.'));
+        fetchData();
+    };
+
+    return (
+        <div>
+            <div className="header">
+                <h1>Endpoint Management</h1>
+                <button className="primary" onClick={handleRefresh}>Refresh Routes</button>
+            </div>
+            {loading && <p>Loading...</p>}
+            {error && <p style={{ color: 'red' }}>{error}</p>}
+            <h2>Global Filters</h2>
+            <table>
+                <thead><tr><th>Filter Name</th><th>Order</th></tr></thead>
+                <tbody>
+                    {globalFilters && globalFilters.length > 0 && globalFilters.map((filter, index) => (
+                        <tr key={index}>
+                            <td>{filter.name}</td>
+                            <td>{filter.order}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <h2>Routes</h2>
+            <table>
+                <thead><tr><th>Route ID</th><th>URI</th><th>Order</th></tr></thead>
+                <tbody>
+                    {routes && routes.length > 0 && routes.map(route => (
+                        <tr key={route.route_id}>
+                            <td>{route.route_id}</td>
+                            <td>{route.uri}</td>
+                            <td>{route.order}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+// --- 6. 侧边栏组件 ---
 const Sidebar = memo(({ activeMenu, onMenuClick }) => {
-    const menuItems = ['Route Management', 'API Clients'];
+    const menuItems = ['Route db Management', 'API Clients', 'Endpoint'];
     return (
         <div className="sidebar">
             <ul className="menu-list">
                 {menuItems.map(item => (
-                    <li key={item} 
-                        className={activeMenu === item ? 'active' : ''} 
+                    <li key={item}
+                        className={activeMenu === item ? 'active' : ''}
                         onClick={() => onMenuClick(item)}>
                         {item}
                     </li>
@@ -249,23 +334,24 @@ const Sidebar = memo(({ activeMenu, onMenuClick }) => {
     );
 });
 
-// --- 6. 应用根组件 ---
+// --- 7. 应用根组件 ---
 function App() {
-    const [activeMenu, setActiveMenu] = useState('Route Management');
+    const [activeMenu, setActiveMenu] = useState('Route db Management');
 
     return (
         <div className="app-container">
             <Sidebar activeMenu={activeMenu} onMenuClick={setActiveMenu} />
             <div className="main-content">
                 <div className="content-wrapper">
-                    {activeMenu === 'Route Management' && <RouteManagement />}
+                    {activeMenu === 'Route db Management' && <RouteManagement />}
                     {activeMenu === 'API Clients' && <ApiClientManagement />}
+                    {activeMenu === 'Endpoint' && <EndpointManagement />}
                 </div>
             </div>
         </div>
     );
 }
 
-// --- 7. 渲染应用 ---
+// --- 8. 渲染应用 ---
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);

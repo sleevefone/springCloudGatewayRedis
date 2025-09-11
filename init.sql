@@ -17,3 +17,6 @@ CREATE TABLE `gateway_routes` (
 
     <!-- Axios for API calls -->
     <script src="./vender/axios.min.js"></script>
+
+
+[ { "predicate": "Paths: [/configurable/**], match trailing slash: true", "route_id": "1111", "filters": [ "[[StripPrefix parts = 1], order = 1]" ], "uri": "https://httpbin.org12241error:443", "order": 0 }, { "predicate": "Paths: [/api/**], match trailing slash: true", "route_id": "caching-route", "filters": [ "[com.ocft.gateway.openapi.constant.CacheResponseGatewayFilterFactory$$Lambda/0x00007f8001ddbdb0@3038d055, order = 1]" ], "uri": "http://your-backend-service:8081", "order": 0 } ]

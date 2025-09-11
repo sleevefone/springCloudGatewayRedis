@@ -1,0 +1,19 @@
+# Actuator 配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, gateway  # 暴露 Gateway 端点
+      base-path: /actuator  # 默认路径
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true  # 显式启用 Gateway 端点
+  metrics:
+    export:
+      prometheus:
+        enabled: true  # 启用 Prometheus 监控（可选）
+
+
+# http://localhost:8888/actuator/gateway/routes  -- [ { "predicate": "Paths: [/configurable/**], match trailing slash: true", "route_id": "1111", "filters": [ "[[StripPrefix parts = 1], order = 1]" ], "uri": "https://httpbin.org12241error:443", "order": 0 }, { "predicate": "Paths: [/api/**], match trailing slash: true", "route_id": "caching-route", "filters": [ "[com.ocft.gateway.openapi.constant.CacheResponseGatewayFilterFactory$$Lambda/0x00007f8001ddbdb0@3038d055, order = 1]" ], "uri": "http://your-backend-service:8081", "order": 0 } ]
