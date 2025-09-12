@@ -31,7 +31,7 @@ class SourceCodeControllerIntegrationTest {
 
         // Act & Assert: Perform the API call and verify the response.
         webTestClient.get()
-                .uri("/__gateway/admin/factories/source?className=" + targetClassName)
+                .uri("/admin/factories/source?className=" + targetClassName)
                 .accept(MediaType.TEXT_PLAIN)
                 .exchange()
                 .expectStatus().isOk()
@@ -47,7 +47,7 @@ class SourceCodeControllerIntegrationTest {
 
         // Act & Assert
         webTestClient.get()
-                .uri("/__gateway/admin/factories/source?className=" + targetClassName)
+                .uri("/admin/factories/source?className=" + targetClassName)
                 .exchange()
                 .expectStatus().isOk() // The service returns a message with 200 OK status
                 .expectBody(String.class).isEqualTo(expectedMessage);

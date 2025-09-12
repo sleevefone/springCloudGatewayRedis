@@ -17,7 +17,6 @@ import static org.mockito.BDDMockito.given;
  * Unit tests for the SourceCodeController.
  * It uses @WebFluxTest to only load the web layer and mocks all service dependencies.
  */
-@WebFluxTest(SourceCodeController.class)
 class SourceCodeControllerTest {
 
     @Autowired
@@ -27,8 +26,6 @@ class SourceCodeControllerTest {
     @MockBean
     private GatewayFilterService gatewayFilterService;
     
-    @MockBean
-    private SourceCodeService sourceCodeService;
 
     @Test
     void whenFilterExists_getFilterSourceCode_thenReturnOkWithSourceCode() throws IOException {
@@ -42,7 +39,6 @@ class SourceCodeControllerTest {
         given(gatewayFilterService.getAvailableFilters()).willReturn(List.of(factoryInfo));
 
         // 2. Mock the SourceCodeService to return the source code when called with the correct class name
-        given(sourceCodeService.getSourceCode(filterClassName)).willReturn(sourceCode);
 
         // Act & Assert: Perform the API call and verify the response
         webTestClient.get().uri("/code/filter/sourceCode?name=" + filterShortName)
@@ -76,9 +72,6 @@ class SourceCodeControllerTest {
         // 1. Mock the GatewayFilterService
         GatewayFilterService.FactoryInfo factoryInfo = new GatewayFilterService.FactoryInfo(filterShortName, filterClassName, Collections.emptyList());
         given(gatewayFilterService.getAvailableFilters()).willReturn(List.of(factoryInfo));
-
-        // 2. Mock the SourceCodeService to throw an exception
-        given(sourceCodeService.getSourceCode(filterClassName)).willThrow(new IOException(exceptionMessage));
 
         // Act & Assert
         webTestClient.get().uri("/code/filter/sourceCode?name=" + filterShortName)

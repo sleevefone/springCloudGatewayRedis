@@ -17,8 +17,7 @@ import java.util.Optional;
  * Admin API for managing Gateway Routes.
  */
 @RestController
-// **CRITICAL FIX: Use a dedicated, non-conflicting internal path for admin APIs**
-@RequestMapping("/__gateway/admin/routes")
+@RequestMapping("/admin/routes")
 @RequiredArgsConstructor
 @Slf4j
 @ConditionalOnProperty(prefix = "gateway.admin", name = "enabled", havingValue = "true")
@@ -35,7 +34,7 @@ public class RouteAdminController {
     @PostMapping
     public Mono<ResponseEntity<Object>> createOrUpdateRoute(@RequestBody RouteDefinitionPayload payload) {
         return routeAdminService.save(payload)
-                .then(Mono.just(ResponseEntity.created(URI.create("/__gateway/admin/routes/" + payload.getId())).build()))
+                .then(Mono.just(ResponseEntity.created(URI.create("/admin/routes/" + payload.getId())).build()))
                 .onErrorResume(e -> {
                     log.error("Failed to save route: {}", payload.getId(), e);
                     return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to save route: " + e.getMessage()));
