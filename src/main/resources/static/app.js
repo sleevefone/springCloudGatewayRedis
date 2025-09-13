@@ -261,7 +261,12 @@ function EndpointManagement() {
                 apiClient.getGlobalFilters(),
                 apiClient.getActuatorRoutes()
             ]);
-            setGlobalFilters(globalFiltersRes.data);
+            const filtersData = globalFiltersRes.data;
+            const transformedFilters = Object.entries(filtersData).map(([name, order]) => ({
+                name: name.split('@')[0],
+                order: order
+            }));
+            setGlobalFilters(transformedFilters);
             setRoutes(routesRes.data);
         } catch (err) {
             setError('Failed to load endpoint data.');
